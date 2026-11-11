@@ -1,0 +1,1430 @@
+<title>Sketchbook Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&family=Kalam:wght@700&family=Patrick+Hand&family=Shadows+Into+Light&family=Permanent+Marker&family=Gloria+Hallelujah&family=Architects+Daughter&family=Reenie+Beanie&display=swap" rel="stylesheet">
+<style>
+  /* Layout: tools + colours left, stage and timeline centre, inspector/style right. Stacks on phones. */
+  :root {
+    --bg: #f1f2f4; --panel: #ffffff; --line: #d8dbe0; --fg: #1b1e23; --muted: #5b626e;
+    --accent: #0f766e; --accent-fg: #ffffff; --stage: #2b2e34; --hover: #eceef1; --danger: #b42318;
+    --ui: "DM Sans", system-ui, sans-serif; --mono: "DM Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #131519; --panel: #1c1f25; --line: #333843; --fg: #eceef1; --muted: #9aa1ad;
+    --accent: #2dd4bf; --accent-fg: #04201d; --stage: #0b0c0e; --hover: #262a32; --danger: #f97066; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #131519; --panel: #1c1f25; --line: #333843; --fg: #eceef1; --muted: #9aa1ad;
+    --accent: #2dd4bf; --accent-fg: #04201d; --stage: #0b0c0e; --hover: #262a32; --danger: #f97066; color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--ui); margin: 0;
+    padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  button, input, select { font: inherit; color: inherit; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+  h1 { font-size: 17px; margin: 0 auto 0 0; letter-spacing: .01em; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .btn:hover { background: var(--hover); }
+  .btn:focus-visible, .tool:focus-visible, .part:focus-visible, .sw:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 700; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.danger { color: var(--danger); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.sm { padding: 3px 8px; font-size: 12px; }
+
+  .app { display: grid; grid-template-columns: 208px minmax(0, 1fr) 280px; gap: 12px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+  .panel + .panel { margin-top: 12px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+  .tool { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .tool:hover { background: var(--hover); }
+  .tool.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  kbd { font: 500 11px var(--mono); opacity: .7; }
+  .parts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .part { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 4px 2px 5px; cursor: pointer; text-align: center; font-size: 11px; color: var(--muted); min-width: 0; }
+  .part:hover { background: var(--hover); }
+  .part.active { border-color: var(--accent); color: var(--fg); box-shadow: inset 0 0 0 1px var(--accent); }
+  .part canvas { width: 100%; height: auto; display: block; background: #f6f2e8; border-radius: 5px; margin-bottom: 3px; }
+
+  .center { min-width: 0; }
+  .stage { background: var(--stage); border-radius: 10px; padding: 10px; }
+  .canvas-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; line-height: 0; border-radius: 4px; overflow: hidden; touch-action: none; }
+  .canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #textEdit { position: absolute; z-index: 5; margin: 0; padding: 0 6px; border: 0; outline: 2px dashed var(--accent); background: transparent; color: #161514; line-height: 1.3;
+    font-family: Caveat, "Bradley Hand", "Segoe Print", cursive; font-weight: 700; min-width: 0; }
+  .playbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; color: #d6d9de; }
+  .playbar input[type=range] { min-width: 0; }
+  #scrub { flex: 1 1 160px; }
+  .time { font: 500 12px var(--mono); min-width: 96px; text-align: right; }
+  .snd { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .snd input[type=range] { width: 80px; }
+  .help { margin: 8px 2px 0; font-size: 12px; color: #9ea4ae; }
+  .rec { color: #ff8a80; font-weight: 700; }
+
+  .field { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input[type=text], .field input[type=number] { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 5px 8px; }
+  .field input[type=range] { width: 100%; }
+  .field select { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 5px 6px; min-width: 0; }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .sw { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+  .sw.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+  input[type=color] { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; padding: 0; background: none; cursor: pointer; }
+  .check { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 13px; }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  /* timeline */
+  .tl-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+  .tl-head h2 { margin: 0 auto 0 0; }
+  .tl-head label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .tl-head input[type=range] { width: 90px; }
+  .tl-scroll { overflow: auto; max-height: 300px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .tl-inner { position: relative; min-width: 100%; }
+  .tl-row { display: flex; height: 28px; border-bottom: 1px solid var(--line); }
+  .tl-row.sel { background: var(--hover); }
+  .tl-lab { position: sticky; left: 0; z-index: 2; flex: 0 0 120px; width: 120px; padding: 0 8px; background: var(--panel); border-right: 1px solid var(--line);
+    font-size: 12px; line-height: 27px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .tl-row.sel .tl-lab { background: var(--hover); box-shadow: inset 3px 0 0 var(--accent); }
+  .tl-track { position: relative; flex: none; height: 27px; }
+  .tl-ruler { position: sticky; top: 0; z-index: 3; background: var(--panel); height: 24px; }
+  .tl-ruler .tl-track { height: 23px; cursor: ew-resize; }
+  .tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); font: 400 10px var(--mono); color: var(--muted); padding-left: 3px; line-height: 22px; pointer-events: none; }
+  .bar { position: absolute; top: 4px; height: 19px; border-radius: 5px; color: #fff; font-size: 11px; line-height: 19px; padding: 0 12px 0 6px; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis; cursor: grab; text-shadow: 0 1px 1px rgba(0,0,0,.45); border: 1px solid rgba(0,0,0,.25); opacity: .92; touch-action: none; }
+  .bar:hover { opacity: 1; }
+  .stay { position: absolute; top: 24px; height: 3px; border-radius: 2px; background: var(--accent); opacity: .6; pointer-events: none; }
+  .stay.open { opacity: .22; }
+  .bar.ovl { border-style: dashed; border-color: rgba(255,255,255,.8); }
+  .bar.sel { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
+  .bar::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: rgba(255,255,255,.28); }
+  #playhead { position: absolute; top: 0; bottom: 0; left: 120px; width: 2px; background: var(--danger); z-index: 1; pointer-events: none; }
+  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; z-index: 20; }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 1100px) { .app { grid-template-columns: 1fr; } .side { order: 2; } .center { order: 1; } .right { order: 3; }
+    .parts { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); } .tools { grid-template-columns: repeat(4, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+
+<header>
+  <h1>Sketchbook Studio</h1>
+  <div class="row">
+    <button class="btn" id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
+    <button class="btn" id="redo" title="Redo (Ctrl/Cmd+Shift+Z)">Redo</button>
+    <button class="btn" id="copyBtn" title="Copy the selection (Ctrl/Cmd+C)">Copy</button>
+    <button class="btn" id="pasteBtn" title="Paste after the original in the timeline (Ctrl/Cmd+V)">Paste</button>
+    <button class="btn danger" id="clear">Clear</button>
+  </div>
+  <div class="row">
+    <button class="btn" id="open">Open scene</button>
+    <button class="btn" id="save">Save scene</button>
+    <button class="btn" id="png">Export PNG</button>
+    <button class="btn primary" id="video">Export video</button>
+  </div>
+  <input type="file" id="file" accept=".json,application/json" hidden>
+</header>
+
+<div class="app">
+  <aside class="side">
+    <div class="panel">
+      <h2>Tools</h2>
+      <div class="tools">
+        <button class="tool" data-tool="select">Select <kbd>V</kbd></button>
+        <button class="tool" data-tool="wire">Wire <kbd>W</kbd></button>
+        <button class="tool" data-tool="pencil">Pencil <kbd>P</kbd></button>
+        <button class="tool" data-tool="text">Text <kbd>T</kbd></button>
+      </div>
+      <button class="btn" id="newPage" style="width:100%;margin:0 0 14px" title="Clear the board at this point in the timeline and start a fresh page">+ New page</button>
+      <button class="btn" id="chatPage" style="width:100%;margin:0 0 8px" title="Adds a new page that looks like a Claude chat: a question about learning Arduino and a funny answer. Double-click any line to rewrite it.">+ Claude chat page</button>
+      <button class="btn" id="idePage" style="width:100%;margin:0 0 8px" title="Adds a new page explaining void setup() and void loop() with colour-coded blink code. Double-click any line to rewrite it.">+ Arduino IDE page</button>
+      <button class="btn" id="breadboardPage" style="width:100%;margin:0 0 8px" title="Adds a new page explaining the breadboard: connected columns, the middle gap and the power rails. Double-click any line to rewrite it.">+ Breadboard page</button>
+      <button class="btn" id="partsPage" style="width:100%;margin:0 0 8px" title="Adds a new page showing the parts for the first tutorial: Arduino board, LED, resistor and two jumper wires. Double-click any line to rewrite it.">+ Parts needed page</button>
+      <button class="btn" id="circuitPage" style="width:100%;margin:0 0 8px" title="Adds a page that redraws the LED circuit diagram (5V source, resistor, LED, ground) and explains each part. Double-click any line to rewrite it.">+ Circuit explained page</button>
+      <button class="btn" id="buildPage" style="width:100%;margin:0 0 8px" title="Adds a step-by-step page showing the LED wired up on a breadboard with the Arduino. Double-click any line to rewrite it.">+ Build it on the breadboard page</button>
+      <button class="btn" id="twoLedPage" style="width:100%;margin:0 0 8px" title="Adds a step-by-step page for two LEDs on pins 9 and 10 sharing one ground rail. Double-click any line to rewrite it.">+ Two LEDs page</button>
+      <button class="btn" id="addImage" style="width:100%;margin:0 0 14px" title="Add a picture. You can also drop a file on the page or paste one.">+ Add image</button>
+      <input type="file" id="imgFile" accept="image/*" multiple hidden>
+      <h2 id="colTitle">Colour</h2>
+      <div class="swatches" id="colSw"></div>
+      <p class="muted" style="margin:6px 0 14px" id="colHint">Colours apply to the selected item, and to everything you add next.</p>
+      <h2>Parts</h2>
+      <div class="parts" id="parts"></div>
+    </div>
+  </aside>
+
+  <div class="center">
+    <main class="stage">
+      <div class="canvas-wrap">
+        <canvas id="cv" width="1920" height="1080"></canvas>
+        <canvas id="overlay" width="1920" height="1080"></canvas>
+        <input type="text" id="textEdit" hidden autocomplete="off" spellcheck="false" aria-label="Edit text on the page">
+      </div>
+      <div class="playbar">
+        <button class="btn" id="play" style="min-width:84px">Play</button>
+        <button class="btn" id="showall" title="Stop and show the finished drawing">Show all</button>
+        <input type="range" id="scrub" min="0" max="1000" value="1000" aria-label="Playback position">
+        <span class="time" id="time">0:00.0</span>
+        <span id="viewInfo" style="flex:1 1 100%;font-size:12px;color:#ffb4a8"></span>
+        <label class="snd"><input type="checkbox" id="s-sound"> Charcoal sound</label>
+        <input type="range" id="s-vol" min="0" max="1" step="0.05" aria-label="Sound volume">
+        <button class="btn sm" id="ownSnd" title="Load a recording of real chalk or charcoal to use instead">Use my own sound</button><input type="file" id="sndFile" accept="audio/*" hidden>
+      </div>
+      <p class="help" id="help"></p>
+    </main>
+    <div class="panel" style="margin-top:12px">
+      <div class="tl-head">
+        <h2>Timeline</h2>
+        <label title="On: items stay attached to the one before them and never overlap. Moving or lengthening an item pushes everything after it. Hold Alt while dragging to flip this for one move."><input type="checkbox" id="s-sticky"> Sticky timing</label>
+        <button class="btn sm" id="tidy" title="Chain everything one after another in time order, with no overlaps">Tidy up</button>
+        <label>Zoom <input type="range" id="zoom" min="24" max="220" step="2" value="70"></label>
+      </div>
+      <div class="tl-scroll" id="tlscroll"><div class="tl-inner" id="tlinner"></div></div>
+      <p class="muted" style="margin:8px 0 0">With Sticky timing on, everything after a bar moves with it and bars never overlap. Turn it off, or hold Alt while dragging, to overlap bars or move one without pushing the rest. Drag a bar\u2019s right edge to change how long it takes (double-click resets). Click the ruler to jump.</p>
+    </div>
+  </div>
+
+  <aside class="right">
+    <div class="panel" id="inspector">
+      <h2>Selected</h2>
+      <p class="muted" id="nosel">Nothing selected. Click an item, or drag across empty space to select several. Shift-click adds or removes one.</p>
+      <div id="selfields" hidden>
+        <div class="field" id="f-text-row"><label for="f-text">Text</label><input type="text" id="f-text"></div>
+        <div class="field" id="f-font-row"><label for="f-font">Font</label><select id="f-font"></select></div>
+        <div class="field" id="f-imgstyle-row"><label for="f-imgstyle">Look</label><select id="f-imgstyle"><option value="photo">Photo</option><option value="gray">Black and white</option><option value="sketch">Charcoal sketch</option></select></div>
+        <div class="field" id="f-detail-row"><label for="f-detail">Sketch detail</label><input type="range" id="f-detail" min="0.1" max="1.2" step="0.05"></div>
+        <div class="field" id="f-size-row"><label for="f-size" id="f-size-l">Size</label><input type="range" id="f-size" min="0.4" max="3" step="0.05"></div>
+        <div class="field" id="f-rot-row"><label for="f-rot">Rotation</label><input type="range" id="f-rot" min="0" max="345" step="15"></div>
+        <div class="field"><label for="f-follow">Follows</label><select id="f-follow"></select></div>
+        <div class="field"><label for="f-gap" id="f-gap-l">Gap (s)</label><input type="number" id="f-gap" step="0.05"></div>
+        <div class="field" id="f-life-row"><label for="f-stay">Stays until</label><div style="display:grid;gap:6px;min-width:0">
+          <select id="f-stay"><option value="page">The next page (or the end)</option><option value="next">The next item starts</option><option value="time">A set time after it is drawn</option></select>
+          <input type="number" id="f-life" min="0" step="0.1" placeholder="seconds" hidden></div></div>
+        <div class="field"><label for="f-dur">Takes (s)</label><input type="number" id="f-dur" min="0.2" step="0.05" placeholder="auto"></div>
+        <div class="row">
+          <button class="btn sm" id="rot90">Rotate 90</button>
+          <button class="btn sm" id="dup">Duplicate</button>
+          <button class="btn sm danger" id="del">Delete</button>
+        </div>
+        <p class="muted" style="margin:8px 0 0">Tip: drag the corner squares on the page to resize, and the round handle on top to rotate (snaps to 15 degrees, hold Alt for free).</p>
+      </div>
+      <div id="multisel" hidden>
+        <p class="muted" id="multicount" style="margin:0 0 8px"></p>
+        <div class="row"><button class="btn sm" id="mdup">Duplicate all</button><button class="btn sm danger" id="mdel">Delete all</button></div>
+        <p class="muted" style="margin:8px 0 0">Drag any selected item to move them all together. The corner squares resize the group and the round handle rotates it. Pick a colour on the left to recolour them all.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Style</h2>
+      <div class="field"><label>Paper</label><div class="swatches" id="paperSw"></div></div>
+      <div class="field"><label for="s-exit">Items leave by</label><select id="s-exit"><option value="fade">Fading out</option><option value="undraw">Undrawing</option><option value="cut">Cutting away</option></select></div>
+      <div class="field"><label for="s-weight">Line weight</label><input type="range" id="s-weight" min="0.6" max="2" step="0.05"></div>
+      <div class="field"><label for="s-grain">Charcoal grain</label><input type="range" id="s-grain" min="0" max="1" step="0.05"></div>
+      <div class="field"><label for="s-speed">Draw speed</label><input type="range" id="s-speed" min="200" max="1400" step="20"></div>
+      <div class="field"><label for="s-hold">Hold at end</label><input type="number" id="s-hold" min="0" max="10" step="0.5"></div>
+      <label class="check"><input type="checkbox" id="s-guides"> Smart guides (hold Ctrl/Cmd to skip)</label>
+      <label class="check"><input type="checkbox" id="s-grid"> Snap to grid</label>
+      <label class="check"><input type="checkbox" id="s-ortho"> Straight wires (90 degrees)</label>
+    </div>
+  </aside>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(function () {
+  "use strict";
+  const W = 1920, H = 1080, G = 10, LABW = 120;
+  const $ = id => document.getElementById(id);
+  // Handwriting-style faces that suit a sketchbook, plus two clean ones for labels.
+  const FONTS = [
+    { id: "Caveat", name: "Caveat (default)", w: 700 }, { id: "Kalam", name: "Kalam", w: 700 }, { id: "Patrick Hand", name: "Patrick Hand", w: 400 },
+    { id: "Shadows Into Light", name: "Shadows Into Light", w: 400 }, { id: "Gloria Hallelujah", name: "Gloria Hallelujah", w: 400 },
+    { id: "Architects Daughter", name: "Architects Daughter", w: 400 }, { id: "Reenie Beanie", name: "Reenie Beanie", w: 400 },
+    { id: "Permanent Marker", name: "Permanent Marker", w: 400 }, { id: "DM Sans", name: "Clean (DM Sans)", w: 700 }, { id: "DM Mono", name: "Mono (DM Mono)", w: 500 } ];
+  const fontDef = el => FONTS.find(f => f.id === (el.font || "Caveat")) || FONTS[0];
+  const fontStr = (el, size) => `${fontDef(el).w} ${size != null ? size : el.size}px "${fontDef(el).id}", "Bradley Hand", "Segoe Print", cursive`;
+  function ensureFont(el) { if (!document.fonts) return; document.fonts.load(fontStr(el, 60)).then(() => { computeTimes(); buildTimeline(); dirty = true; }).catch(() => {}); }
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const clamp01 = x => clamp(x, 0, 1);
+  const r05 = x => Math.round(x * 20) / 20;
+
+  // ---------------------------------------------------------------- parts library
+  const rectS = (w, h) => [[-w, -h], [w, -h], [w, h], [-w, h], [-w, -h]];
+  const resS = [[-120, 0], [-90, 0], [-70, -45], [-25, 45], [20, -45], [65, 45], [90, 0], [120, 0]];
+  const dots = [];
+  for (const y of [-230, -205, -165, -135, -105, -75, -45, 45, 75, 105, 135, 165, 205, 230]) for (let x = -240; x <= 240; x += 40) dots.push([[x, y], [x + 1, y + 1]]);
+  const wdots = [];
+  for (const y of [-165, -140, -100, -80, -60, -40, -20, 20, 40, 60, 80, 100, 140, 165]) for (let x = -560; x <= 560; x += 40) wdots.push([[x, y], [x + 1, y + 1]]);
+  const PARTS = {
+    resistor:  { name: "Resistor", strokes: [resS], terms: [[-120, 0], [120, 0]] },
+    led:       { name: "LED", strokes: [[[-130, 0], [-50, 0]], [[-50, -65], [-50, 65], [70, 0], [-50, -65]], [[70, -65], [70, 65]], [[70, 0], [130, 0]],
+                 [[-20, -100], [40, -165]], [[40, -165], [12, -160]], [[40, -165], [34, -137]], [[25, -85], [85, -150]], [[85, -150], [57, -145]], [[85, -150], [79, -122]]],
+                 terms: [[-130, 0], [130, 0]] },
+    battery:   { name: "Battery", strokes: [[[-80, 0], [-30, 0]], [[-30, -55], [-30, 55]], [[0, -30], [0, 30]], [[30, -55], [30, 55]], [[60, -30], [60, 30]], [[60, 0], [110, 0]]],
+                 terms: [[-80, 0], [110, 0]] },
+    button:    { name: "Button", strokes: [[[-120, 0], [-50, 0]], [[50, 0], [120, 0]], [[-50, 0], [40, -50]], [[0, -85], [0, -110]], [[-30, -110], [30, -110]]],
+                 terms: [[-120, 0], [120, 0]] },
+    capacitor: { name: "Capacitor", strokes: [[[-100, 0], [-20, 0]], [[-20, -60], [-20, 60]], [[20, -60], [20, 60]], [[20, 0], [100, 0]]], terms: [[-100, 0], [100, 0]] },
+    pot:       { name: "Potentiometer", strokes: [resS, [[0, -115], [0, -52]], [[0, -52], [-14, -80]], [[0, -52], [14, -80]]], terms: [[-120, 0], [120, 0], [0, -115]] },
+    ground:    { name: "Ground", strokes: [[[0, -40], [0, 0]], [[-60, 0], [60, 0]], [[-38, 30], [38, 30]], [[-16, 60], [16, 60]]], terms: [[0, -40]] },
+    arrow:     { name: "Arrow", strokes: [[[-80, 0], [80, 0]], [[80, 0], [50, -25]], [[80, 0], [50, 25]]], terms: [] },
+    box:       { name: "Box", strokes: [rectS(80, 45)], terms: [[-80, 0], [80, 0], [0, -45], [0, 45]] },
+    arduino:   { name: "Arduino", strokes: [rectS(280, 180), [[-280, -70], [-350, -70], [-350, 10], [-280, 10]], [[200, -140], [240, -140], [240, -100], [200, -100], [200, -140]]],
+                 terms: [-200, -143, -86, -29, 28, 85, 142, 200].map(x => [x, -180]).concat([-150, -90, -30, 30, 90, 150].map(x => [x, 180])) },
+    breadboardwide: { name: "Breadboard (wide)", strokes: [rectS(600, 190), [[-580, -6], [580, -6]], [[-580, 6], [580, 6]]].concat(wdots), terms: [] },
+    breadboard:{ name: "Breadboard", strokes: [rectS(300, 260), [[-280, -10], [280, -10]], [[-280, 10], [280, 10]]].concat(dots), terms: [] },
+  };
+
+  // ---------------------------------------------------------------- state
+  const PAPERS = ["#fbfaf6", "#f6f2e8", "#efe8d6", "#e6dcc4"];
+  const COLORS = ["#161514", "#c0392b", "#e07b00", "#d4a017", "#2e8b57", "#0f8b8d", "#2563eb", "#6d3fc0", "#d6407c", "#7a4b2a"];
+  const defaults = () => ({ paper: PAPERS[1], ink: COLORS[0], pen: COLORS[0], weight: 1, grain: 0.55, speed: 520, hold: 2.5, grid: true, ortho: true, sticky: true, guides: true, textFont: "Caveat", exit: "fade", sound: true, vol: 0.6 });
+  let S = defaults(), els = [], nextId = 1;
+  let guides = [], editT = null, editing = null, clip = null, sel = null, multi = [], marquee = null, tool = "select", placePart = null, placeRot = 0;
+  let mouse = { x: 0, y: 0, snapped: false }, wireDraft = null, pencilDraft = null, drag = null, tdrag = null;
+  let previewT = Infinity, resumeT = null, playing = false, playStart = 0, recording = false, dirty = true;
+  let total = 1, history = [], hIdx = -1, pps = 70;
+  const KEY = "sketchbook-studio-v2";
+
+  function demoScene() {
+    const e = [];
+    const T = (text, x, y, size) => e.push({ kind: "text", text, x, y, size, rot: 0 });
+    const P = (part, x, y, color) => e.push({ kind: "part", part, x, y, rot: 0, scale: 1, color });
+    const Wr = pts => e.push({ kind: "wire", pts });
+    T("Blink an LED", 300, 230, 150); T("pin \u2192 resistor \u2192 LED \u2192 ground", 300, 340, 76);
+    P("box", 370, 560); T("D13", 322, 586, 72);
+    Wr([[450, 560], [640, 560]]); P("resistor", 760, 560); T("220 \u03A9", 690, 710, 80);
+    Wr([[880, 560], [955, 560]]); P("led", 1085, 560, "#c0392b"); T("LED", 1040, 710, 80);
+    Wr([[1215, 560], [1330, 560], [1330, 700]]); P("ground", 1330, 740); T("GND", 1430, 770, 80);
+    e.forEach(x => { x.id = nextId++; });
+    return e;
+  }
+
+  // ---------------------------------------------------------------- geometry
+  // Images live in a store keyed by id, so the undo history and autosave only carry the short id.
+  const IMGS = new Map(); let imagesDirty = false, imgWarned = false;
+  const IKEY = "sketchbook-studio-images-v1";
+  function addImageRec(id, src, w, h) {
+    if (IMGS.has(id)) return IMGS.get(id);
+    const rec = { src, w, h, el: new Image() }; rec.el.onload = () => { rec.ready = true; dirty = true; }; rec.el.src = src; IMGS.set(id, rec); imagesDirty = true; return rec;
+  }
+  const usedImages = () => { const o = {}; for (const e of els) if (e.kind === "image" && IMGS.has(e.img)) { const r = IMGS.get(e.img); o[e.img] = { src: r.src, w: r.w, h: r.h }; } return o; };
+  function persistImages() {
+    if (!imagesDirty) return; imagesDirty = false;
+    try { localStorage.setItem(IKEY, JSON.stringify(usedImages())); }
+    catch (e) { if (!imgWarned) { imgWarned = true; toast("Your images are too big to keep for next time. Use Save scene to keep this work."); } }
+  }
+  function prepareImage(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file), im = new Image();
+      im.onload = () => { const nw = im.naturalWidth, nh = im.naturalHeight; if (!nw || !nh) { URL.revokeObjectURL(url); rej(new Error("size")); return; }
+        const m = Math.min(1, 1400 / Math.max(nw, nh)), w = Math.max(1, Math.round(nw * m)), h = Math.max(1, Math.round(nh * m)), c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(im, 0, 0, w, h); URL.revokeObjectURL(url); res({ src: c.toDataURL(/png|gif|webp|svg/.test(file.type) ? "image/png" : "image/jpeg", 0.88), w, h }); };
+      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("load")); }; im.src = url;
+    });
+  }
+  const hexRgb = h => { const n = parseInt(h.replace("#", ""), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  // Turns a picture into charcoal-style lines: edges plus a little shading, coloured in the item's ink.
+  function sketchCanvas(el) {
+    const rec = IMGS.get(el.img); if (!rec || !rec.ready) return null; const det = el.detail != null ? el.detail : 0.6, key = el.img + "|" + det + "|" + colorOf(el);
+    if (el._sk && el._sk.key === key) return el._sk.c;
+    const im = rec.el, m = Math.min(1, 800 / Math.max(im.naturalWidth, im.naturalHeight)), w = Math.max(3, Math.round(im.naturalWidth * m)), h = Math.max(3, Math.round(im.naturalHeight * m));
+    const c = document.createElement("canvas"); c.width = w; c.height = h; const x = c.getContext("2d", { willReadFrequently: true }); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h).data, g = new Float32Array(w * h), b = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) g[i] = (0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]) / 255;
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) { let t = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) t += g[clamp(yy + dy, 0, h - 1) * w + clamp(xx + dx, 0, w - 1)]; b[yy * w + xx] = t / 9; }
+    const out = x.createImageData(w, h), col = hexRgb(colorOf(el));
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+      const i = yy * w + xx; let a = 0;
+      if (yy > 0 && xx > 0 && yy < h - 1 && xx < w - 1) {
+        const gx = -b[i - w - 1] - 2 * b[i - 1] - b[i + w - 1] + b[i - w + 1] + 2 * b[i + 1] + b[i + w + 1], gy = -b[i - w - 1] - 2 * b[i - w] - b[i - w + 1] + b[i + w - 1] + 2 * b[i + w] + b[i + w + 1];
+        a = clamp01(Math.hypot(gx, gy) * 1.6 * (0.3 + det) + (1 - b[i]) * 0.3 * det); }
+      out.data[i * 4] = col[0]; out.data[i * 4 + 1] = col[1]; out.data[i * 4 + 2] = col[2]; out.data[i * 4 + 3] = a * 255;
+    }
+    const o = document.createElement("canvas"); o.width = w; o.height = h; o.getContext("2d").putImageData(out, 0, 0); el._sk = { key, c: o }; return o;
+  }
+  function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function xf(el, p) { const a = (el.rot || 0) * Math.PI / 180, s = el.scale || 1, c = Math.cos(a), n = Math.sin(a);
+    return [el.x + (p[0] * c - p[1] * n) * s, el.y + (p[0] * n + p[1] * c) * s]; }
+  function baseStrokes(el) {
+    if (el.kind === "part") return PARTS[el.part].strokes.map(s => s.map(p => xf(el, p)));
+    if (el.kind === "wire" || el.kind === "free") return [el.pts];
+    return [];
+  }
+  function terminals(el) {
+    if (el.kind === "part") return PARTS[el.part].terms.map(p => xf(el, p));
+    if (el.kind === "wire") return [el.pts[0], el.pts[el.pts.length - 1]];
+    return [];
+  }
+  const plen = pts => { let l = 0; for (let i = 0; i < pts.length - 1; i++) l += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return l; };
+
+  function sketchPoly(pts, seed, amp) {
+    const r = rng(seed), out = [], L = plen(pts), a = Math.min(amp, L * 0.25);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], n = Math.max(1, Math.round(Math.hypot(x2 - x1, y2 - y1) / 28));
+      for (let k = 0; k < n; k++) { const t = k / n; out.push([x1 + (x2 - x1) * t + (r() - .5) * a, y1 + (y2 - y1) * t + (r() - .5) * a]); }
+    }
+    const last = pts[pts.length - 1]; out.push([last[0] + (r() - .5) * a, last[1] + (r() - .5) * a]);
+    const dense = [out[0]];
+    for (let i = 0; i < out.length - 1; i++) {
+      const p0 = out[Math.max(0, i - 1)], p1 = out[i], p2 = out[i + 1], p3 = out[Math.min(out.length - 1, i + 2)];
+      const n = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / 8));
+      for (let k = 1; k <= n; k++) { const t = k / n, t2 = t * t, t3 = t2 * t;
+        dense.push([0, 1].map(j => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3))); }
+    }
+    const cum = [0]; for (let i = 1; i < dense.length; i++) cum.push(cum[i - 1] + Math.hypot(dense[i][0] - dense[i - 1][0], dense[i][1] - dense[i - 1][1]));
+    return { pts: dense, cum, len: cum[cum.length - 1] };
+  }
+  function geo(el) {
+    const key = JSON.stringify([el.kind, el.part, el.x, el.y, el.rot, el.scale, el.pts]);
+    if (el._geo && el._geo.key === key) return el._geo;
+    const base = baseStrokes(el).filter(s => s.length > 1), lens = base.map(plen), tot = lens.reduce((a, b) => a + b, 0) || 1;
+    let c = 0; const fr = lens.map(l => { const f0 = c / tot; c += l; return [f0, c / tot]; });
+    const free = el.kind === "free", seed = (el.id || 1) * 7919;
+    const A = base.map((s, i) => Object.assign(sketchPoly(s, seed + i * 17, free ? 1 : 3.2), { f0: fr[i][0], f1: fr[i][1] }));
+    const B = base.map((s, i) => Object.assign(sketchPoly(s, seed + i * 17 + 101, free ? 0.8 : 2), { f0: fr[i][0], f1: fr[i][1] }));
+    return (el._geo = { key, A, B, len: tot });
+  }
+  function textW(el) { ink.font = fontStr(el); return ink.measureText(el.text || " ").width; }
+  function bbox(el) {
+    if (el.kind === "break") return { x0: 0, y0: 0, x1: W, y1: H };
+    if (el.kind === "image") { const hw = el.iw * (el.scale || 1) / 2, hh = el.ih * (el.scale || 1) / 2, cs = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(p => xf({ x: el.x, y: el.y, rot: el.rot, scale: 1 }, p));
+      return { x0: Math.min(...cs.map(p => p[0])), y0: Math.min(...cs.map(p => p[1])), x1: Math.max(...cs.map(p => p[0])), y1: Math.max(...cs.map(p => p[1])) }; }
+    if (el.kind === "text") { const w = textW(el), s = el.size, cs = [[0, -s * .9], [w, -s * .9], [w, s * .3], [0, s * .3]].map(p => xf({ x: el.x, y: el.y, rot: el.rot, scale: 1 }, p));
+      return { x0: Math.min(...cs.map(p => p[0])), y0: Math.min(...cs.map(p => p[1])), x1: Math.max(...cs.map(p => p[0])), y1: Math.max(...cs.map(p => p[1])) }; }
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const s of baseStrokes(el)) for (const p of s) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
+    return { x0, y0, x1, y1 };
+  }
+  function segDist(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    let t = l2 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2 : 0; t = clamp01(t);
+    return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)); }
+  // while editing at a point in time, only the items that are on the board at that moment can be picked
+  const shown = el => el.kind !== "break" && (editT == null || (el._start <= editT + 1e-6 && editT < el._vanish));
+  function hit(p) {
+    for (let i = els.length - 1; i >= 0; i--) { const el = els[i]; if (!shown(el) || el.kind === "image") continue;
+      if (el.kind === "text") { const q = xf({ x: 0, y: 0, rot: -(el.rot || 0), scale: 1 }, [p[0] - el.x, p[1] - el.y]);
+        if (q[0] > -8 && q[0] < textW(el) + 8 && q[1] > -el.size * .95 && q[1] < el.size * .35) return el; continue; }
+      for (const s of baseStrokes(el)) for (let k = 0; k < s.length - 1; k++) if (segDist(p, s[k], s[k + 1]) < 16) return el; }
+    let best = null, area = 1e18;
+    for (const el of els) { if (el.kind !== "part" || !shown(el)) continue; const b = bbox(el);
+      if (p[0] > b.x0 - 8 && p[0] < b.x1 + 8 && p[1] > b.y0 - 8 && p[1] < b.y1 + 8) { const a = (b.x1 - b.x0) * (b.y1 - b.y0); if (a < area) { area = a; best = el; } } }
+    if (best) return best;
+    for (let i = els.length - 1; i >= 0; i--) { const el = els[i]; if (el.kind !== "image" || !shown(el)) continue;                    // pictures sit under the drawing, so they are picked last
+      const q = xf({ x: 0, y: 0, rot: -(el.rot || 0), scale: 1 }, [p[0] - el.x, p[1] - el.y]); if (Math.abs(q[0]) <= el.iw * (el.scale || 1) / 2 && Math.abs(q[1]) <= el.ih * (el.scale || 1) / 2) return el; }
+    return null;
+  }
+
+  // ---------------------------------------------------------------- timing
+  const GAP = 0.12, EXIT = 0.5;
+  const colorOf = el => el.color || S.ink;
+  function autoDur(el) { if (el.kind === "break") return 0.6; if (el.kind === "image") return 0.2; return el.kind === "text" ? Math.max(0.5, (el.text || "").length * 0.075) : Math.max(0.35, geo(el).len / S.speed); }
+  // Timing model: an item either starts at an absolute time (link = null) or follows another item, starting `lag` seconds after
+  // that item ends (lag below 0 means they overlap). Followers move whenever the item they follow moves or changes length.
+  function computeTimes() {
+    const old = els.filter(e => e.link === undefined && e.at != null);          // scenes saved before linking existed
+    if (old.length) { old.forEach(e => { e._dur = e.dur != null ? e.dur : autoDur(e); }); let prev = null;
+      [...old].sort((a, b) => a.at - b.at).forEach(e => { if (prev) { e.link = prev.id; e.lag = r05(e.at - (prev.at + prev._dur)); } else e.link = null; prev = e; }); }
+    const byId = new Map(els.map(e => [e.id, e]));
+    function resolve(e) {
+      if (e._st === 2) return; e._st = 1; e._dur = e.dur != null ? e.dur : autoDur(e);
+      let q = e.link != null ? byId.get(e.link) : null; if (q && q._st === 1) q = null;
+      if (q) { resolve(q); e._start = Math.max(0, q._start + q._dur + (e.lag || 0)); }
+      else { if (e.link != null) { e.link = null; e.at = e._start != null ? e._start : 0.4; } e._start = Math.max(0, e.at != null ? e.at : 0.4); }
+      e._st = 2;
+    }
+    els.forEach(e => { e._st = 0; });
+    const fresh = els.filter(e => e.link === undefined);
+    els.filter(e => e.link !== undefined).forEach(resolve);
+    for (const e of fresh) {                                                      // new items follow whatever ends last
+      let best = null, be = -1; for (const o of els) { if (o === e || o._st !== 2) continue; const oe = o._start + o._dur; if (oe > be) { be = oe; best = o; } }
+      if (best) { e.link = best.id; e.lag = GAP; } else { e.link = null; e.at = 0.4; }
+      resolve(e);
+    }
+    // when does each item leave the board? after its own "stays for" time, or when the next page starts
+    const brks = els.filter(e => e.kind === "break");
+    for (const e of els) { let v = Infinity;
+      if (e.kind !== "break") { if (e.life != null) v = e._start + e._dur + e.life;
+        if (e.until === "next") { let nx = Infinity; for (const o of els) if (o !== e && o._start > e._start + 1e-6 && o._start < nx) nx = o._start; v = Math.min(v, nx); } for (const b of brks) if (b._start > e._start + 1e-6) v = Math.min(v, b._start); }
+      e._vanish = v; }
+    let end = 0; for (const e of els) { end = Math.max(end, e._start + e._dur); if (isFinite(e._vanish)) end = Math.max(end, e._vanish + EXIT); }
+    total = Math.max(1, end + 0.4);
+  }
+  const followersOf = el => els.filter(x => x.link === el.id);
+  function descendants(el) { const out = [], seen = new Set([el]); const q = [el]; while (q.length) { const c = q.shift(); for (const f of followersOf(c)) if (!seen.has(f)) { seen.add(f); out.push(f); q.push(f); } } return out; }
+  // move one item to start at t; sticky keeps its followers attached, otherwise they stay where they were
+  function setStart(el, t, sticky) {
+    t = Math.max(0, t); const before = el._start, pr = el.link != null ? els.find(x => x.id === el.link) : null;
+    if (pr) { let lag = t - (pr._start + pr._dur); if (sticky) lag = Math.max(0, lag); el.lag = r05(lag); } else el.at = r05(t);
+    computeTimes();
+    if (!sticky) { const shift = el._start - before; if (shift) { followersOf(el).forEach(f => { f.lag = (f.lag || 0) - shift; }); computeTimes(); } }
+  }
+  const ease = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+
+  // ---------------------------------------------------------------- rendering
+  const cv = $("cv"), ctx = cv.getContext("2d"), ov = $("overlay"), octx = ov.getContext("2d");
+  const inkC = document.createElement("canvas"); inkC.width = W; inkC.height = H; const ink = inkC.getContext("2d");
+  let grainPat = null, paperPat = null, grainFor = -1;
+
+  function tile(size, fn) { const c = document.createElement("canvas"); c.width = c.height = size; const x = c.getContext("2d"), d = x.createImageData(size, size); fn(d.data, size); x.putImageData(d, 0, 0); return c; }
+  function buildPatterns() {
+    const soft = document.createElement("canvas"); soft.width = soft.height = 512; const sx = soft.getContext("2d");
+    const lo = tile(64, d => { for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } });
+    sx.imageSmoothingEnabled = true; sx.drawImage(lo, 0, 0, 512, 512);
+    const sd = sx.getImageData(0, 0, 512, 512).data, g = S.grain;
+    const gt = tile(512, d => { for (let i = 0; i < d.length; i += 4) { const v = (sd[i] / 255) * 0.55 + Math.random() * 0.75;
+      const a = Math.max(0, (v - 0.55) / 0.75); d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = Math.min(255, a * g * 520); } });
+    grainPat = ink.createPattern(gt, "repeat"); grainFor = g;
+    if (!paperPat) { const pt = tile(256, d => { for (let i = 0; i < d.length; i += 4) { d[i] = 110; d[i + 1] = 90; d[i + 2] = 60; d[i + 3] = Math.random() * 22; } }); paperPat = ctx.createPattern(pt, "repeat"); }
+  }
+  function drawPartial(c, poly, frac) {
+    const L = poly.len * frac; if (L <= 0) return;
+    c.beginPath(); c.moveTo(poly.pts[0][0], poly.pts[0][1]);
+    for (let i = 1; i < poly.pts.length; i++) {
+      if (poly.cum[i] <= L) c.lineTo(poly.pts[i][0], poly.pts[i][1]);
+      else { const k = (L - poly.cum[i - 1]) / ((poly.cum[i] - poly.cum[i - 1]) || 1); c.lineTo(poly.pts[i - 1][0] + (poly.pts[i][0] - poly.pts[i - 1][0]) * k, poly.pts[i - 1][1] + (poly.pts[i][1] - poly.pts[i - 1][1]) * k); break; }
+    }
+    c.stroke();
+  }
+  // where an item is in its life at time t: how far drawn (u seconds in) and how faded, or null when it is not on the board
+  function phase(el, t, edit) {
+    let u, ex = 0;
+    if (edit != null) { if (!(el._start <= edit + 1e-6 && edit < el._vanish)) return null; u = el._dur + 10; }       // editing: show what is on the board at that moment, fully drawn
+    else if (t === Infinity) u = el._dur + 10;
+    else { u = t - el._start; if (u <= 0) return null;
+      if (t > el._vanish) { if (S.exit === "cut") return null; ex = clamp01((t - el._vanish) / EXIT); if (ex >= 1) return null; } }
+    const fade = ex > 0 && S.exit !== "undraw" ? 1 - ex : 1; if (ex > 0 && S.exit === "undraw") u = el._dur * (1 - ex);
+    return { u, fade };
+  }
+  function revealImage(c, el, img, prog, fade) {
+    const w = el.iw * (el.scale || 1), h = el.ih * (el.scale || 1);
+    c.save(); c.globalAlpha = fade; c.translate(el.x, el.y); c.rotate((el.rot || 0) * Math.PI / 180);
+    c.beginPath(); c.rect(-w / 2 - 2, -h / 2 - 2, (w + 4) * prog, h + 4); c.clip(); c.drawImage(img, -w / 2, -h / 2, w, h); c.restore();
+  }
+  function drawPhoto(c, el, t, edit) {
+    if (el.kind !== "image" || el.imgStyle === "sketch") return; const ph = phase(el, t, edit), rec = IMGS.get(el.img); if (!ph || !rec || !rec.ready) return;
+    c.save(); c.globalCompositeOperation = "multiply"; if (el.imgStyle === "gray" && "filter" in c) c.filter = "grayscale(1) contrast(1.08)";
+    revealImage(c, el, rec.el, 1, ph.fade); c.restore();
+  }
+  function drawEl(c, el, t, edit) {
+    if (el === editing || el.kind === "break") return;
+    if (el.kind === "image") { if (el.imgStyle !== "sketch") return; const ph = phase(el, t, edit), sk = ph && sketchCanvas(el); if (ph && sk) revealImage(c, el, sk, 1, ph.fade); return; }
+    const ph = phase(el, t, edit); if (!ph) return; const u = ph.u, fade = ph.fade;
+    if (el.kind === "text") {
+      const prog = clamp01(u / el._dur), w = textW(el);
+      c.save(); c.globalAlpha = fade; c.translate(el.x, el.y); c.rotate((el.rot || 0) * Math.PI / 180); c.font = fontStr(el); c.fillStyle = colorOf(el);
+      c.beginPath(); c.rect(-12, -el.size * 1.1, (w + 24) * prog, el.size * 1.5); c.clip(); c.fillText(el.text, 0, 0); c.restore(); return;
+    }
+    const g = geo(el), wt = S.weight;
+    c.lineCap = "round"; c.lineJoin = "round"; c.strokeStyle = colorOf(el);
+    const passes = [[g.A, 5 * wt, 1, 0], [g.B, 3 * wt, 0.75, 0.1], [g.A, 14 * wt, 0.09, 0.02]];
+    for (const [set, w, a, delay] of passes) {
+      const p = ease(clamp01((u - delay) / el._dur)); c.lineWidth = w; c.globalAlpha = a * fade;
+      for (const poly of set) drawPartial(c, poly, clamp01((p - poly.f0) / ((poly.f1 - poly.f0) || 1)));
+    }
+    c.globalAlpha = 1;
+  }
+  function render(t, edit) {
+    if (grainFor !== S.grain) buildPatterns();
+    ink.clearRect(0, 0, W, H); ink.globalAlpha = 1;
+    for (const el of els) drawEl(ink, el, t, edit);
+    ink.globalCompositeOperation = "destination-out"; ink.fillStyle = grainPat; ink.fillRect(0, 0, W, H); ink.globalCompositeOperation = "source-over";
+    ctx.fillStyle = S.paper; ctx.fillRect(0, 0, W, H); ctx.fillStyle = paperPat; ctx.fillRect(0, 0, W, H);
+    for (const el of els) drawPhoto(ctx, el, t, edit);
+    ctx.drawImage(inkC, 0, 0);
+  }
+
+  // ---------------------------------------------------------------- charcoal sound
+  let AC = null, master = null, gA = null, gB = null, gU = null, srcA = null, srcB = null, srcU = null, userBuf = null, recDest = null;
+  // Chalk rub only: a soft low scrape centred near 150 Hz. No hiss, pitched or percussive layers.
+  function scrapeBuffer(sec, k, h0, h1, pow) {
+    const sr = AC.sampleRate, len = Math.floor(sr * sec), buf = AC.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    let lp = 0, env = 0.5, tgt = 0.5, left = 0;
+    for (let i = 0; i < len; i++) {
+      if (--left <= 0) { tgt = Math.pow(Math.random(), pow); left = Math.floor(sr * (h0 + Math.random() * (h1 - h0)) / 1000); }
+      env += (tgt - env) * 0.1; lp += k * ((Math.random() * 2 - 1) - lp); d[i] = lp * env;
+    }
+    const f = Math.floor(sr * 0.03); for (let i = 0; i < f; i++) { const g = i / f; d[i] *= g; d[len - 1 - i] *= g; }
+    let m = 0; for (let i = 0; i < len; i++) m = Math.max(m, Math.abs(d[i])); for (let i = 0; i < len; i++) d[i] *= 0.9 / (m || 1);
+    return buf;
+  }
+  function loopSrc(buf) { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; return s; }
+  function initAudio() {
+    if (AC) { if (AC.state === "suspended") AC.resume(); return; }
+    const Ctor = window.AudioContext || window.webkitAudioContext; if (!Ctor) return;
+    AC = new Ctor();
+    const filt = (type, f, q) => { const n = AC.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q) n.Q.value = q; return n; };
+    const comp = AC.createDynamicsCompressor(), mk = () => { const g = AC.createGain(); g.gain.value = 0; return g; };
+    master = AC.createGain();
+    srcB = loopSrc(scrapeBuffer(3.3, 0.06, 15, 60, 1.0));
+    gB = mk(); gU = mk();
+    const bpB = filt("bandpass", 160, 0.9), lpB = filt("lowpass", 700);
+    srcB.connect(bpB); bpB.connect(lpB); lpB.connect(gB); gB.connect(master);
+    master.connect(comp); comp.connect(AC.destination);
+    recDest = AC.createMediaStreamDestination(); comp.connect(recDest);
+    srcB.start(); if (userBuf) startUser();
+  }
+  function startUser() { if (srcU) { try { srcU.stop(); } catch (e) {} } srcU = loopSrc(userBuf); srcU.connect(gU); gU.connect(AC.destination); gU.connect(recDest); srcU.start(); }
+  // how hard the charcoal is pressing at time t: 0 = nothing being drawn
+  function activity(t) {
+    let level = 0, speed = 0;
+    for (const el of els) { if (el.kind === "break" || el.kind === "image") continue; const u = t - el._start; if (u <= 0 || u >= el._dur) continue; const x = u / el._dur;
+      if (el.kind === "text") { level = Math.max(level, 0.6); speed = Math.max(speed, 0.55); }
+      else { const d = (x < .5 ? 4 * x : 4 * (1 - x)) / 2; level = Math.max(level, 0.3 + 0.7 * clamp01(d)); speed = Math.max(speed, clamp01(d)); } }
+    return { level, speed };
+  }
+  function audioUpdate(on, t) {
+    if (!AC) return; const v = S.sound ? S.vol : 0, now = AC.currentTime, own = !!userBuf;
+    const a = on ? activity(t) : { level: 0, speed: 0 }, fl = 0.85 + 0.15 * Math.random(), synth = own ? 0 : 1;
+    gB.gain.setTargetAtTime(a.level * v * 0.9 * fl * synth, now, 0.04);
+    gU.gain.setTargetAtTime(a.level * v * 1.4 * (own ? 1 : 0), now, 0.03);
+    srcB.playbackRate.setTargetAtTime(0.9 + a.speed * 0.25, now, 0.05);
+    if (srcU) srcU.playbackRate.setTargetAtTime(0.85 + a.speed * 0.3, now, 0.05);
+  }
+
+  // ---------------------------------------------------------------- selection handles
+  const kScale = () => W / ov.getBoundingClientRect().width || 2;
+  const selList = () => multi.length ? multi : (sel ? [sel] : []);
+  function setSelection(list) { list = list.filter((x, i) => els.includes(x) && list.indexOf(x) === i); multi = list.length > 1 ? list : []; sel = list.length === 1 ? list[0] : null; }
+  function unionBox(list) { const bs = list.map(bbox); return { x0: Math.min(...bs.map(b => b.x0)), y0: Math.min(...bs.map(b => b.y0)), x1: Math.max(...bs.map(b => b.x1)), y1: Math.max(...bs.map(b => b.y1)) }; }
+  const groupCentre = list => { const b = unionBox(list); return [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2]; };
+  // Smart guides: snap the moving box's edges and centre to other items' edges and centres, and to the page centre lines.
+  function guideTargets(exclude) {
+    const out = [{ x0: 0, x1: W, cx: W / 2, y0: 0, y1: H, cy: H / 2 }];
+    for (const el of els) { if (exclude.includes(el) || !shown(el)) continue; const b = bbox(el); if (!isFinite(b.x0)) continue; out.push({ x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2 }); }
+    return out;
+  }
+  function alignSnap(box, targets, thr) {
+    const mx = [box.x0, (box.x0 + box.x1) / 2, box.x1], my = [box.y0, (box.y0 + box.y1) / 2, box.y1]; let bx = null, by = null;
+    for (const t of targets) { const tx = [t.x0, t.cx, t.x1], ty = [t.y0, t.cy, t.y1];
+      for (const a of mx) for (const b of tx) { const d = b - a; if (Math.abs(d) < thr && (bx === null || Math.abs(d) < Math.abs(bx))) bx = d; }
+      for (const a of my) for (const b of ty) { const d = b - a; if (Math.abs(d) < thr && (by === null || Math.abs(d) < Math.abs(by))) by = d; } }
+    const dx = bx || 0, dy = by || 0, nb = { x0: box.x0 + dx, x1: box.x1 + dx, y0: box.y0 + dy, y1: box.y1 + dy }, out = [], seen = new Set();
+    const nx = [nb.x0, (nb.x0 + nb.x1) / 2, nb.x1], ny = [nb.y0, (nb.y0 + nb.y1) / 2, nb.y1];
+    for (const t of targets) { const tx = [t.x0, t.cx, t.x1], ty = [t.y0, t.cy, t.y1];
+      for (const a of nx) for (const b of tx) if (Math.abs(a - b) < 0.6) { const key = "v" + Math.round(b); if (!seen.has(key)) { seen.add(key); out.push({ v: true, at: b, a: Math.min(nb.y0, t.y0), b: Math.max(nb.y1, t.y1) }); } }
+      for (const a of ny) for (const b of ty) if (Math.abs(a - b) < 0.6) { const key = "h" + Math.round(b); if (!seen.has(key)) { seen.add(key); out.push({ v: false, at: b, a: Math.min(nb.x0, t.x0), b: Math.max(nb.x1, t.x1) }); } } }
+    return { dx, dy, guides: out };
+  }
+  function placeAt(p, ctrl) {
+    const s = snap(p, false); s.guides = [];
+    if (!s.snapped && S.guides && !ctrl) { const ghost = { kind: "part", part: placePart, x: s.x, y: s.y, rot: placeRot, scale: 1 };
+      const r = alignSnap(bbox(ghost), guideTargets([]), 8 * kScale()); s.x += r.dx; s.y += r.dy; s.guides = r.guides; }
+    return s;
+  }
+  function selBox() { const b = unionBox(selList()), P = 14; return { x0: b.x0 - P, y0: b.y0 - P, x1: b.x1 + P, y1: b.y1 + P }; }
+  function handleAt(p) {
+    if (!selList().length || tool !== "select" || selList().every(m => m.kind === "break")) return null;
+    const k = kScale(), r = 18 * k, B = selBox(), rot = [(B.x0 + B.x1) / 2, B.y0 - 46 * k];
+    if (Math.hypot(p[0] - rot[0], p[1] - rot[1]) < r) return { type: "rot" };
+    const cs = [[B.x0, B.y0], [B.x1, B.y0], [B.x1, B.y1], [B.x0, B.y1]];
+    for (let i = 0; i < 4; i++) if (Math.hypot(p[0] - cs[i][0], p[1] - cs[i][1]) < r) return { type: "scale", i };
+    return null;
+  }
+  const orig = el => ({ x: el.x, y: el.y, scale: el.scale, size: el.size, rot: el.rot || 0, pts: el.pts && el.pts.map(q => q.slice()) });
+  function applyScale(el, o, c, f) {
+    if (el.kind === "break") return;
+    if (o.pts) { el.pts = o.pts.map(q => [c[0] + (q[0] - c[0]) * f, c[1] + (q[1] - c[1]) * f]); return; }
+    el.x = c[0] + (o.x - c[0]) * f; el.y = c[1] + (o.y - c[1]) * f;
+    if (el.kind === "text") el.size = clamp(Math.round(o.size * f), 16, 500); else el.scale = clamp(o.scale * f, el.kind === "image" ? 0.02 : 0.2, 8);
+  }
+  function applyRot(el, o, c, deg) {
+    if (el.kind === "break") return;
+    const a = deg * Math.PI / 180, co = Math.cos(a), si = Math.sin(a), R = q => [c[0] + (q[0] - c[0]) * co - (q[1] - c[1]) * si, c[1] + (q[0] - c[0]) * si + (q[1] - c[1]) * co];
+    if (o.pts) { el.pts = o.pts.map(R); return; }
+    const q = R([o.x, o.y]); el.x = q[0]; el.y = q[1]; el.rot = (((o.rot + deg) % 360) + 360) % 360;
+  }
+
+  function drawOverlay() {
+    octx.clearRect(0, 0, W, H);
+    const k = kScale(), acc = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#0f766e";
+    octx.lineWidth = 1.6 * k; octx.strokeStyle = acc; octx.fillStyle = acc;
+    if (selList().length && !recording) {
+      if (multi.length) { octx.globalAlpha = 0.55; octx.setLineDash([3 * k, 4 * k]); for (const m of multi) { const b = bbox(m); octx.strokeRect(b.x0 - 6, b.y0 - 6, b.x1 - b.x0 + 12, b.y1 - b.y0 + 12); } octx.setLineDash([]); octx.globalAlpha = 1; }
+      const B = selBox(); octx.setLineDash([6 * k, 5 * k]); octx.strokeRect(B.x0, B.y0, B.x1 - B.x0, B.y1 - B.y0); octx.setLineDash([]);
+      if (tool === "select") {
+        const cx = (B.x0 + B.x1) / 2, ry = B.y0 - 46 * k;
+        octx.beginPath(); octx.moveTo(cx, B.y0); octx.lineTo(cx, ry); octx.stroke();
+        octx.beginPath(); octx.arc(cx, ry, 8 * k, 0, 7); octx.fillStyle = "#fff"; octx.fill(); octx.stroke();
+        for (const q of [[B.x0, B.y0], [B.x1, B.y0], [B.x1, B.y1], [B.x0, B.y1]]) { octx.fillStyle = "#fff"; octx.fillRect(q[0] - 7 * k, q[1] - 7 * k, 14 * k, 14 * k); octx.strokeRect(q[0] - 7 * k, q[1] - 7 * k, 14 * k, 14 * k); }
+      }
+      if (sel && sel.kind === "wire") for (const p of sel.pts) { octx.beginPath(); octx.arc(p[0], p[1], 6 * k, 0, 7); octx.fillStyle = acc; octx.fill(); }
+    }
+    if (guides.length) { octx.save(); octx.strokeStyle = "#ff3d81"; octx.fillStyle = "#ff3d81"; octx.lineWidth = 1.4 * k;
+      for (const g of guides) { octx.beginPath(); if (g.v) { octx.moveTo(g.at, g.a); octx.lineTo(g.at, g.b); } else { octx.moveTo(g.a, g.at); octx.lineTo(g.b, g.at); } octx.stroke();
+        for (const [x, y] of g.v ? [[g.at, g.a], [g.at, g.b]] : [[g.a, g.at], [g.b, g.at]]) { octx.beginPath(); octx.arc(x, y, 3.5 * k, 0, 7); octx.fill(); } }
+      octx.restore(); }
+    if (marquee) { const x0 = Math.min(marquee.x0, marquee.x1), y0 = Math.min(marquee.y0, marquee.y1), w = Math.abs(marquee.x1 - marquee.x0), h = Math.abs(marquee.y1 - marquee.y0);
+      octx.globalAlpha = 0.12; octx.fillStyle = acc; octx.fillRect(x0, y0, w, h); octx.globalAlpha = 1; octx.setLineDash([6 * k, 4 * k]); octx.strokeRect(x0, y0, w, h); octx.setLineDash([]); }
+    octx.fillStyle = acc;
+    if (tool === "wire" || placePart) { octx.globalAlpha = 0.55;
+      for (const el of els) for (const p of (shown(el) ? terminals(el) : [])) { octx.beginPath(); octx.arc(p[0], p[1], 5 * k, 0, 7); octx.fill(); } octx.globalAlpha = 1; }
+    if (wireDraft) { octx.lineWidth = 3 * k; octx.beginPath(); wireDraft.forEach((p, i) => i ? octx.lineTo(p[0], p[1]) : octx.moveTo(p[0], p[1]));
+      wirePreviewPts().forEach(p => octx.lineTo(p[0], p[1])); octx.stroke(); }
+    if (pencilDraft) { octx.lineWidth = 3 * k; octx.beginPath(); pencilDraft.forEach((p, i) => i ? octx.lineTo(p[0], p[1]) : octx.moveTo(p[0], p[1])); octx.stroke(); }
+    if (tool === "wire" && mouse.snapped) { octx.lineWidth = 1.6 * k; octx.beginPath(); octx.arc(mouse.x, mouse.y, 11 * k, 0, 7); octx.stroke(); }
+    if (placePart) { const ghost = { x: mouse.x, y: mouse.y, rot: placeRot, scale: 1, kind: "part", part: placePart };
+      octx.globalAlpha = 0.6; octx.lineWidth = 4 * k; for (const s of baseStrokes(ghost)) { octx.beginPath(); s.forEach((p, i) => i ? octx.lineTo(p[0], p[1]) : octx.moveTo(p[0], p[1])); octx.stroke(); } octx.globalAlpha = 1; }
+  }
+
+  // ---------------------------------------------------------------- canvas interaction
+  function pos(e) { const r = ov.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; }
+  function snap(p, free) {
+    let best = null, bd = 28;
+    for (const el of els) for (const q of (shown(el) ? terminals(el) : [])) { if (drag && (drag.el === el || (drag.items && drag.items.some(i => i.el === el)))) continue; const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = q; } }
+    if (best) return { x: best[0], y: best[1], snapped: true };
+    return S.grid && !free ? { x: Math.round(p[0] / G) * G, y: Math.round(p[1] / G) * G, snapped: false } : { x: p[0], y: p[1], snapped: false };
+  }
+  function wirePreviewPts() {
+    if (!wireDraft || !wireDraft.length) return [];
+    const last = wireDraft[wireDraft.length - 1], m = [mouse.x, mouse.y];
+    if (!S.ortho || mouse.shift) return [m];
+    if (mouse.snapped) return (m[0] === last[0] || m[1] === last[1]) ? [m] : [[m[0], last[1]], m];
+    return Math.abs(m[0] - last[0]) >= Math.abs(m[1] - last[1]) ? [[m[0], last[1]]] : [[last[0], m[1]]];
+  }
+  const newColor = () => (S.pen && S.pen !== S.ink) ? S.pen : undefined;
+  function add(el) {
+    el.id = nextId++; const c = newColor(); if (c) el.color = c;
+    const a = editT != null && els.length ? (computeTimes(), anchorAt(editT)) : null;       // while editing a moment, new items join the timeline at that point
+    if (a) insertNext([el], a); else els.push(el);
+    setSelection([el]); if (editT != null) { computeTimes(); editT = el._start + 0.001; resumeT = editT; } return el;
+  }
+  function leaveView() { if (isFinite(previewT)) { resumeT = previewT; editT = previewT; previewT = Infinity; } pausePlay(); }
+  function goTo(t) { playing = false; previewT = Infinity; editT = Math.max(0, t); resumeT = editT; setPlayLabel(); dirty = true; }
+  function focusView(el) { if (!el) return; if (el.kind === "break") goTo(el._start - 0.01); else if (editT != null && !shown(el)) goTo(el._start + 0.001); }
+  function anchorAt(T) { let a = null, be = -1; for (const o of els) if (o._start <= T + 1e-6 && o._start + o._dur > be) { be = o._start + o._dur; a = o; } return a; }
+  function insertNext(list, anchor) {
+    let prev = anchor; list.forEach(c => { c.link = prev.id; c.lag = GAP; prev = c; });
+    if (S.sticky) els.filter(x => x.link === anchor.id).forEach(f => { f.link = prev.id; });
+    els.push(...list);
+  }
+  function finishWire() {
+    if (wireDraft && wireDraft.length >= 2) {
+      const pts = wireDraft.filter((p, i) => !i || p[0] !== wireDraft[i - 1][0] || p[1] !== wireDraft[i - 1][1]);
+      if (pts.length >= 2) { add({ kind: "wire", pts }); commit(); }
+    }
+    wireDraft = null; dirty = true;
+  }
+  const HELP = { select: "Drag to move, and pink guides snap to centres and edges. Double-click text to edit it. Drag on empty space to box-select, Shift-click to add or remove items. Ctrl/Cmd+C and V copy and paste. Corner squares resize, the round handle rotates.",
+    wire: "Click to start, click to bend. Wires snap to part ends. Enter, double-click or right-click finishes. Hold Shift for any angle.",
+    pencil: "Hold and drag to draw freehand.", text: "Click where the text should start, then type in the Text box on the right.",
+    part: "Click to place. R rotates the ghost. Esc cancels." };
+  function setTool(t) {
+    if (wireDraft) finishWire(); tool = t; if (t !== "part") placePart = null;
+    document.querySelectorAll(".tool").forEach(b => b.classList.toggle("active", b.dataset.tool === t));
+    document.querySelectorAll(".part").forEach(b => b.classList.toggle("active", t === "part" && b.dataset.part === placePart));
+    ov.style.cursor = t === "select" ? "default" : t === "text" ? "text" : "crosshair";
+    $("help").textContent = HELP[t]; dirty = true;
+  }
+
+  ov.addEventListener("pointerdown", e => {
+    if (recording) return;
+    if (e.button === 2) { if (wireDraft) { e.preventDefault(); finishWire(); } return; }
+    ov.setPointerCapture(e.pointerId); leaveView();
+    const p = pos(e);
+    if (tool === "select") {
+      if (sel && sel.kind === "wire") { const i = sel.pts.findIndex(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 16 * kScale() / 2); if (i >= 0) { drag = { type: "vertex", el: sel, i, moved: false }; return; } }
+      const h = handleAt(p);
+      if (h) { const list = selList(), c = groupCentre(list);
+        drag = { type: h.type, items: list.map(el => ({ el, o: orig(el) })), c, d0: Math.max(10, Math.hypot(p[0] - c[0], p[1] - c[1])), a0: Math.atan2(p[1] - c[1], p[0] - c[0]), moved: false }; return; }
+      const el = hit(p);
+      if (e.shiftKey) { if (el) { const l = selList().slice(), i = l.indexOf(el); i >= 0 ? l.splice(i, 1) : l.push(el); setSelection(l); } refreshUI(); dirty = true; return; }
+      if (el) { if (!selList().includes(el) || selList().length === 1) setSelection([el]);
+        drag = { type: "move", items: selList().map(x => ({ el: x, o: orig(x) })), sx: p[0], sy: p[1], moved: false, box0: unionBox(selList()), targets: guideTargets(selList()) }; }
+      else { setSelection([]); marquee = { x0: p[0], y0: p[1], x1: p[0], y1: p[1] }; }
+      refreshUI(); dirty = true;
+    } else if (tool === "wire") {
+      const s = snap(p, e.shiftKey); mouse = { x: s.x, y: s.y, snapped: s.snapped, shift: e.shiftKey };
+      if (!wireDraft) wireDraft = [[s.x, s.y]];
+      else { const last = wireDraft[wireDraft.length - 1]; if (s.x === last[0] && s.y === last[1]) { finishWire(); return; }
+        wirePreviewPts().forEach(q => wireDraft.push([q[0], q[1]])); }
+      dirty = true;
+    } else if (tool === "pencil") { pencilDraft = [p]; }
+    else if (tool === "text") { const s = snap(p, false); add({ kind: "text", text: "Label", x: s.x, y: s.y, size: 80, rot: 0, font: S.textFont }); commit(); setTool("select"); const made = sel; setTimeout(() => { if (made) openTextEdit(made, true); }, 40); }
+    else if (tool === "part" && placePart) { const s = placeAt(p, e.ctrlKey || e.metaKey); guides = []; add({ kind: "part", part: placePart, x: s.x, y: s.y, rot: placeRot, scale: 1 }); placePart = null; commit(); setTool("select"); }
+  });
+  ov.addEventListener("pointermove", e => {
+    const p = pos(e), s = snap(p, e.shiftKey && tool === "wire"); mouse = { x: s.x, y: s.y, snapped: s.snapped, shift: e.shiftKey };
+    if (placePart && !drag) { const r = placeAt(p, e.ctrlKey || e.metaKey); mouse = { x: r.x, y: r.y, snapped: r.snapped, shift: e.shiftKey }; guides = r.guides; }
+    if (drag) {
+      drag.moved = true; const el = drag.el;
+      if (drag.type === "vertex") { const q = snap(p, e.shiftKey); el.pts[drag.i] = [q.x, q.y]; }
+      else if (drag.type === "scale") { const f = clamp(Math.hypot(p[0] - drag.c[0], p[1] - drag.c[1]) / drag.d0, 0.1, 10); drag.items.forEach(i => applyScale(i.el, i.o, drag.c, f)); }
+      else if (drag.type === "rot") { let d = (Math.atan2(p[1] - drag.c[1], p[0] - drag.c[0]) - drag.a0) * 180 / Math.PI;
+        if (!e.altKey) { const base = drag.items.length === 1 && !drag.items[0].o.pts ? drag.items[0].o.rot : 0; d = Math.round((base + d) / 15) * 15 - base; } drag.items.forEach(i => applyRot(i.el, i.o, drag.c, d)); }
+      else { let dx = p[0] - drag.sx, dy = p[1] - drag.sy; if (S.grid && !e.shiftKey) { dx = Math.round(dx / G) * G; dy = Math.round(dy / G) * G; }
+        if (S.guides && !(e.ctrlKey || e.metaKey) && drag.targets) { const bx = drag.box0, r = alignSnap({ x0: bx.x0 + dx, x1: bx.x1 + dx, y0: bx.y0 + dy, y1: bx.y1 + dy }, drag.targets, 8 * kScale()); dx += r.dx; dy += r.dy; guides = r.guides; } else guides = [];
+        drag.items.forEach(({ el: m, o }) => { if (m.kind === "break") return; if (o.pts) m.pts = o.pts.map(q => [q[0] + dx, q[1] + dy]); else { m.x = o.x + dx; m.y = o.y + dy; } }); }
+      computeTimes(); syncInspector();
+    } else if (marquee) { marquee.x1 = p[0]; marquee.y1 = p[1];
+    } else if (pencilDraft) { const l = pencilDraft[pencilDraft.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 5) pencilDraft.push(p); }
+    else if (tool === "select") { const h = handleAt(p); ov.style.cursor = h ? (h.type === "rot" ? "grab" : (h.i % 2 ? "nesw-resize" : "nwse-resize")) : "default"; }
+    dirty = true;
+  });
+  ov.addEventListener("pointerup", () => {
+    guides = []; dirty = true;
+    if (drag) { if (drag.moved) commit(); drag = null; }
+    if (marquee) { const m = marquee; marquee = null; const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1), y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1);
+      if (x1 - x0 > 8 || y1 - y0 > 8) setSelection(els.filter(el => { if (!shown(el)) return false; const b = bbox(el); return b.x1 >= x0 && b.x0 <= x1 && b.y1 >= y0 && b.y0 <= y1; }));
+      refreshUI(); dirty = true; }
+    if (pencilDraft) { if (pencilDraft.length > 2) { add({ kind: "free", pts: pencilDraft.map(q => [Math.round(q[0]), Math.round(q[1])]) }); commit(); } pencilDraft = null; dirty = true; }
+  });
+  // ---- editing text in place
+  const te = $("textEdit"); let editOrig = "";
+  function placeEdit() {
+    if (!editing) return; const sc = ov.getBoundingClientRect().width / W, el = editing;
+    te.style.fontSize = el.size * sc + "px"; te.style.fontFamily = '"' + fontDef(el).id + '", "Bradley Hand", "Segoe Print", cursive'; te.style.fontWeight = fontDef(el).w; te.style.left = (el.x - 6) * sc + "px"; te.style.top = (el.y - el.size * 0.98) * sc + "px"; te.style.height = el.size * 1.3 * sc + "px";
+    te.style.width = Math.max(80, textW(el) + 60) * sc + "px"; te.style.transformOrigin = 6 * sc + "px " + el.size * 0.98 * sc + "px"; te.style.transform = "rotate(" + (el.rot || 0) + "deg)";
+  }
+  function openTextEdit(el, selectAll) {
+    if (editing) finishEdit(true); leaveView(); editing = el; editOrig = el.text; te.hidden = false; te.value = el.text; placeEdit(); te.focus(); if (selectAll) te.select(); dirty = true;
+  }
+  function finishEdit(keep) {
+    if (!editing) return; const el = editing; editing = null; te.hidden = true;
+    if (!keep) el.text = editOrig;
+    if (keep && el.text.trim() === "") { els = els.filter(x => x !== el); setSelection([]); commit(); return; }
+    if (el.text !== editOrig) commit(); else { computeTimes(); refreshUI(); } dirty = true;
+  }
+  te.addEventListener("input", () => { if (!editing) return; editing.text = te.value; computeTimes(); placeEdit(); syncInspector(); dirty = true; });
+  te.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); te.blur(); } else if (e.key === "Escape") { e.preventDefault(); finishEdit(false); } e.stopPropagation(); });
+  te.addEventListener("blur", () => finishEdit(true));
+  ov.addEventListener("dblclick", e => {
+    if (wireDraft) { finishWire(); return; }
+    if (tool === "select" && !recording) { const el = hit(pos(e)); if (el && el.kind === "text") { setSelection([el]); refreshUI(); openTextEdit(el, false); } }
+  });
+  ov.addEventListener("contextmenu", e => { e.preventDefault(); if (wireDraft) finishWire(); });
+
+  document.addEventListener("keydown", e => {
+    const ae = document.activeElement, typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && ae.type !== "range" && ae.type !== "checkbox";
+    if (typing) return;
+    const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+    if (mod && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if (mod && k === "d") { e.preventDefault(); duplicate(); return; }
+    if (mod && k === "c") { if (copySel()) toast("Copied. Paste puts it next in the timeline."); return; }
+    if (mod && k === "x") { if (copySel()) { removeSel(); toast("Cut. Paste puts it back next in the timeline."); } return; }
+    if (mod && k === "v") return;
+    if (mod && k === "a") { e.preventDefault(); setTool("select"); setSelection(els.filter(shown)); refreshUI(); dirty = true; return; }
+    if (mod) return;
+    if (e.key === " ") { e.preventDefault(); togglePlay(); return; }
+    if (k === "escape") { wireDraft = null; pencilDraft = null; placePart = null; setTool("select"); setSelection([]); refreshUI(); }
+    else if (k === "enter" && wireDraft) finishWire();
+    else if (k === "v") setTool("select"); else if (k === "w") setTool("wire"); else if (k === "p") setTool("pencil"); else if (k === "t") setTool("text");
+    else if (k === "r") { if (placePart) placeRot = (placeRot + 90) % 360; else rotateSel(90); dirty = true; }
+    else if ((k === "delete" || k === "backspace") && selList().length) { e.preventDefault(); removeSel(); }
+    else if (k.startsWith("arrow") && selList().length) { e.preventDefault(); const d = e.shiftKey ? 50 : G, dx = k === "arrowleft" ? -d : k === "arrowright" ? d : 0, dy = k === "arrowup" ? -d : k === "arrowdown" ? d : 0; selList().forEach(m => nudge(m, dx, dy)); commit(); }
+  });
+  function nudge(el, dx, dy) { if (el.kind === "break") return; if (el.pts) el.pts = el.pts.map(q => [q[0] + dx, q[1] + dy]); else { el.x += dx; el.y += dy; } }
+  function rotateSel(d) {
+    const l = selList(); if (!l.length || (l.length === 1 && l[0].pts)) return; leaveView();
+    if (l.length === 1) l[0].rot = ((l[0].rot || 0) + d) % 360; else { const c = groupCentre(l); l.forEach(m => applyRot(m, orig(m), c, d)); }
+    commit();
+  }
+  function removeSel() {
+    const l = selList(); if (!l.length) return; computeTimes();
+    for (const d of l) for (const f of followersOf(d)) {                          // followers close the gap and attach to what the removed item followed
+      if (d.link != null) { f.link = d.link; f.lag = (d.lag || 0) + (f.lag || 0); } else { f.link = null; f.at = d._start + (f.lag || 0); delete f.lag; } }
+    els = els.filter(x => !l.includes(x)); setSelection([]); commit();
+  }
+  // Copy/paste: pasted items go in the timeline straight after the original (or after the previous paste), and in sticky mode
+  // everything that used to follow the original is pushed back to make room.
+  function copySel() {
+    const l = selList(); if (!l.length) return false; computeTimes();
+    const ordered = [...l].sort((a, b) => a._start - b._start);
+    clip = { items: ordered.map(m => JSON.parse(JSON.stringify(m, (k, v) => k[0] === "_" ? undefined : v))), anchors: ordered.map(m => m.id), n: 0 };
+    refreshUI(); return true;
+  }
+  function pasteClip() {
+    if (!clip) return; leaveView(); computeTimes(); clip.n++; const off = 30 * clip.n;
+    let anchor = null, be = -1;
+    for (const id of clip.anchors) { const a = els.find(x => x.id === id); if (a && a._start + a._dur > be) { be = a._start + a._dur; anchor = a; } }
+    const made = clip.items.map(j => { const c = JSON.parse(JSON.stringify(j)); c.id = nextId++; delete c.at; delete c.link; delete c.lag; nudge(c, off, off); return c; });
+    if (anchor) insertNext(made, anchor); else els.push(...made);
+    if (editT != null) { computeTimes(); editT = made[0]._start + 0.001; resumeT = editT; }
+    setSelection(made); clip.anchors = made.map(m => m.id); commit();
+  }
+  function duplicate() { const keep = clip; if (copySel()) pasteClip(); clip = keep; refreshUI(); }
+
+  // ---------------------------------------------------------------- history + persistence
+  const snapshot = () => JSON.stringify({ els, S, nextId }, (k, v) => k[0] === "_" ? undefined : v);
+  const fileSnapshot = () => JSON.stringify({ els, S, nextId, images: usedImages() }, (k, v) => k[0] === "_" ? undefined : v);
+  function restore(str) { const ids = selList().map(x => x.id); const o = JSON.parse(str); if (o.images) for (const id in o.images) addImageRec(id, o.images[id].src, o.images[id].w, o.images[id].h); els = o.els; S = Object.assign(defaults(), o.S); nextId = o.nextId; setSelection(els.filter(x => ids.includes(x.id))); }
+  function commit() {
+    history = history.slice(0, hIdx + 1); computeTimes(); history.push(snapshot()); if (history.length > 120) history.shift(); hIdx = history.length - 1;
+    try { localStorage.setItem(KEY, history[hIdx]); } catch (e) {}
+    persistImages(); refreshUI(); dirty = true;
+  }
+  function undo() { if (hIdx > 0) { hIdx--; restore(history[hIdx]); computeTimes(); refreshUI(); dirty = true; } }
+  function redo() { if (hIdx < history.length - 1) { hIdx++; restore(history[hIdx]); computeTimes(); refreshUI(); dirty = true; } }
+
+  // ---------------------------------------------------------------- inspector, colours, style
+  const label = el => el.kind === "break" ? "New page" : el.kind === "image" ? "Image" : el.kind === "part" ? PARTS[el.part].name : el.kind === "text" ? "\u201C" + (el.text || "") + "\u201D" : el.kind === "wire" ? "Wire" : "Sketch";
+  const fmt = t => { const m = Math.floor(t / 60), s = (t - m * 60).toFixed(1); return m + ":" + (s < 10 ? "0" : "") + s; };
+  function syncInspector() {
+    if (!sel) return;
+    $("f-text-row").hidden = sel.kind !== "text"; $("f-font-row").hidden = sel.kind !== "text"; if (sel.kind === "text") $("f-font").value = fontDef(sel).id; $("f-size-row").hidden = sel.kind === "wire" || sel.kind === "free" || sel.kind === "break"; $("f-rot-row").hidden = !!sel.pts || sel.kind === "break"; $("rot90").hidden = !!sel.pts || sel.kind === "break"; $("f-life-row").hidden = sel.kind === "break"; $("f-imgstyle-row").hidden = sel.kind !== "image"; $("f-detail-row").hidden = !(sel.kind === "image" && sel.imgStyle === "sketch");
+    if (sel.kind === "image") { $("f-imgstyle").value = sel.imgStyle || "photo"; $("f-detail").value = sel.detail != null ? sel.detail : 0.6; }
+    if (document.activeElement !== $("f-life")) $("f-life").value = sel.life != null ? sel.life : "";
+    const stay = sel.until === "next" ? "next" : sel.life != null ? "time" : "page"; if (document.activeElement !== $("f-stay")) $("f-stay").value = stay; $("f-life").hidden = stay !== "time";
+    const sz = $("f-size");
+    if (sel.kind === "text") { sz.min = 16; sz.max = 500; sz.step = 2; sz.value = sel.size; $("f-size-l").textContent = "Font size"; }
+    else if (sel.kind === "image") { sz.min = 0.02; sz.max = 3; sz.step = 0.01; sz.value = sel.scale || 1; $("f-size-l").textContent = "Size"; }
+    else { sz.min = 0.2; sz.max = 8; sz.step = 0.05; sz.value = sel.scale || 1; $("f-size-l").textContent = "Scale"; }
+    if (document.activeElement !== $("f-text")) $("f-text").value = sel.text || "";
+    $("f-rot").value = Math.round((sel.rot || 0) / 15) * 15;
+    const fo = $("f-follow");
+    if (document.activeElement !== fo) { const bad = new Set([sel, ...descendants(sel)]); fo.textContent = "";
+      const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Start of video"; fo.append(o0);
+      els.forEach(x => { if (bad.has(x)) return; const o = document.createElement("option"); o.value = x.id; o.textContent = label(x) + " (" + fmt(x._start || 0) + ")"; fo.append(o); });
+      fo.value = sel.link != null ? String(sel.link) : ""; }
+    $("f-gap-l").textContent = sel.link != null ? "Gap after (s)" : "Starts at (s)"; $("f-gap").min = sel.link != null ? -30 : 0;
+    if (document.activeElement !== $("f-gap")) $("f-gap").value = sel.link != null ? (sel.lag || 0) : (sel.at != null ? sel.at : sel._start || 0);
+    if (document.activeElement !== $("f-dur")) { $("f-dur").value = sel.dur != null ? sel.dur : ""; $("f-dur").placeholder = sel._dur ? "auto (" + sel._dur.toFixed(1) + ")" : "auto"; }
+  }
+  function refreshUI() {
+    $("nosel").hidden = selList().length > 0; $("selfields").hidden = !sel; $("multisel").hidden = !multi.length; $("multicount").textContent = multi.length + " items selected"; syncInspector();
+    $("s-weight").value = S.weight; $("s-grain").value = S.grain; $("s-speed").value = S.speed; $("s-hold").value = S.hold; $("s-exit").value = S.exit; $("s-grid").checked = S.grid; $("s-guides").checked = S.guides; $("s-sticky").checked = S.sticky; $("s-ortho").checked = S.ortho;
+    $("s-sound").checked = S.sound; $("s-vol").value = S.vol;
+    document.querySelectorAll("#paperSw .sw").forEach(b => b.classList.toggle("active", b.dataset.c === S.paper));
+    const sl = selList(), cur = (sl.length ? colorOf(sl[sl.length - 1]) : S.pen).toLowerCase(); let match = false;
+    document.querySelectorAll("#colSw .sw").forEach(b => { const on = b.dataset.c === cur; match = match || on; b.classList.toggle("active", on); });
+    $("customColor").value = /^#[0-9a-f]{6}$/.test(cur) ? cur : "#161514";
+    $("colTitle").textContent = multi.length ? "Colour of " + multi.length + " selected" : sel ? "Colour of selected" : "Colour for new items";
+    $("copyBtn").disabled = !selList().length; $("pasteBtn").disabled = !clip;
+    $("undo").disabled = hIdx <= 0; $("redo").disabled = hIdx >= history.length - 1;
+    buildTimeline();
+  }
+  function setColor(c) { S.pen = c; const l = selList(); if (l.length) { leaveView(); l.forEach(m => { m.color = c === S.ink ? undefined : c; }); } commit(); }
+  COLORS.forEach(c => { const b = document.createElement("button"); b.className = "sw"; b.style.background = c; b.dataset.c = c; b.title = c; b.setAttribute("aria-label", "Colour " + c); b.onclick = () => setColor(c); $("colSw").append(b); });
+  { const ci = document.createElement("input"); ci.type = "color"; ci.id = "customColor"; ci.title = "Custom colour"; ci.setAttribute("aria-label", "Custom colour");
+    ci.addEventListener("input", () => { S.pen = ci.value; const l = selList(); if (l.length) { leaveView(); l.forEach(m => { m.color = ci.value; }); } dirty = true; });
+    ci.addEventListener("change", () => commit()); $("colSw").append(ci); }
+  PAPERS.forEach(c => { const b = document.createElement("button"); b.className = "sw"; b.style.background = c; b.dataset.c = c; b.title = c; b.setAttribute("aria-label", "Paper " + c); b.onclick = () => { S.paper = c; commit(); }; $("paperSw").append(b); });
+
+  const live = (id, fn) => { const n = $(id); n.addEventListener("input", () => { if (!sel) return; leaveView(); fn(n); computeTimes(); dirty = true; if (id !== "f-text") buildTimeline(); }); n.addEventListener("change", () => { if (sel) commit(); }); };
+  live("f-text", n => { sel.text = n.value; });
+  live("f-size", n => { if (sel.kind === "text") sel.size = +n.value; else sel.scale = +n.value; });
+  live("f-rot", n => { sel.rot = +n.value; });
+  live("f-gap", n => { if (sel.link != null) sel.lag = +n.value || 0; else sel.at = Math.max(0, +n.value || 0); });
+  $("f-follow").addEventListener("change", e => { if (!sel) return; leaveView(); computeTimes(); const t = sel._start, v = e.target.value;
+    if (v === "") { sel.link = null; sel.at = r05(t); delete sel.lag; } else { const T = els.find(x => x.id === +v); sel.link = T.id; sel.lag = r05(t - (T._start + T._dur)); }
+    commit(); });
+  $("f-stay").addEventListener("change", e => { if (!sel) return; leaveView(); const v = e.target.value;
+    if (v === "page") { delete sel.life; delete sel.until; } else if (v === "next") { delete sel.life; sel.until = "next"; } else { delete sel.until; if (sel.life == null) sel.life = 2; }
+    commit(); });
+  live("f-life", n => { if (n.value === "") delete sel.life; else sel.life = Math.max(0, +n.value || 0); });
+  $("f-imgstyle").addEventListener("change", e => { if (!sel || sel.kind !== "image") return; leaveView(); sel.imgStyle = e.target.value; commit(); });
+  live("f-detail", n => { sel.detail = +n.value; });
+  live("f-dur", n => { if (n.value === "") delete sel.dur; else sel.dur = Math.max(0.2, +n.value || 0.2); });
+  { const fs = $("f-font"); FONTS.forEach(f => { const o = document.createElement("option"); o.value = f.id; o.textContent = f.name; o.style.fontFamily = '"' + f.id + '", cursive'; fs.append(o); });
+    fs.addEventListener("change", () => { const l = selList().filter(x => x.kind === "text"); if (!l.length) return; leaveView(); S.textFont = fs.value; l.forEach(x => { x.font = fs.value; ensureFont(x); }); computeTimes(); commit(); }); }
+  $("rot90").onclick = () => rotateSel(90); $("dup").onclick = duplicate; $("del").onclick = removeSel; $("mdup").onclick = duplicate; $("mdel").onclick = removeSel;
+  const sLive = (id, key, num) => { const n = $(id); n.addEventListener("input", () => { S[key] = num ? +n.value : n.checked; if (key !== "sound" && key !== "vol") leaveView(); computeTimes(); dirty = true; }); n.addEventListener("change", () => commit()); };
+  sLive("s-weight", "weight", 1); sLive("s-grain", "grain", 1); sLive("s-speed", "speed", 1); sLive("s-hold", "hold", 1); sLive("s-grid", "grid", 0); sLive("s-guides", "guides", 0); sLive("s-sticky", "sticky", 0); sLive("s-ortho", "ortho", 0); sLive("s-sound", "sound", 0); sLive("s-vol", "vol", 1);
+  // A ready-made page that looks like a chat: input bar at the bottom, a question bubble, and an answer written line by line.
+  function rrectPts(cx, cy, w, h, r) {
+    const pts = [], n = 6, hw = w / 2, hh = h / 2;
+    const corner = (ox, oy, a0) => { for (let i = 0; i <= n; i++) { const a = (a0 + 90 * i / n) * Math.PI / 180; pts.push([Math.round(ox + r * Math.cos(a)), Math.round(oy + r * Math.sin(a))]); } };
+    corner(cx - hw + r, cy - hh + r, 180); corner(cx + hw - r, cy - hh + r, 270); corner(cx + hw - r, cy + hh - r, 0); corner(cx - hw + r, cy + hh - r, 90);
+    pts.push(pts[0].slice()); return pts;
+  }
+  function sparkPts(cx, cy, R) {
+    const L = [1, .62, .92, .7, 1, .6, .95, .68, .9, .64], pts = [[cx, cy]];
+    L.forEach((l, i) => { const a = (-90 + i * 36) * Math.PI / 180; pts.push([Math.round(cx + R * l * Math.cos(a)), Math.round(cy + R * l * Math.sin(a))], [cx, cy]); });
+    return pts;
+  }
+  function addChatPage() {
+    leaveView(); computeTimes(); const anchor = sel || (editT != null ? anchorAt(editT) : anchorAt(Infinity)), ORANGE = "#d97757", GREY = "#7b8088";
+    const free = (pts, color, lag) => ({ kind: "free", pts, color, want: lag });
+    const txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const items = [
+      free(rrectPts(960, 960, 1100, 96, 44)),
+      { kind: "part", part: "arrow", x: 1450, y: 960, rot: -90, scale: 0.3, color: ORANGE },
+      txt("Message Claude...", 440, 975, 40, "DM Sans", GREY, 0.1, 0.03),
+      free(rrectPts(1135, 205, 760, 176, 40)),
+      txt("I bought an Arduino kit.", 800, 195, 54, "Patrick Hand", undefined, 0.2, 0.045),
+      txt("How should I use it to learn?", 800, 262, 54, "Patrick Hand", undefined, 0.1, 0.045),
+      free(sparkPts(480, 410, 38), ORANGE, 1.0),
+      txt("Great news: you now own a box of tiny lights.", 545, 425, 46, "Patrick Hand", undefined, 0.15, 0.03),
+      txt("Step one: watch Paul McWhorter on YouTube.", 545, 487, 46, "Patrick Hand", undefined, 0.12, 0.03),
+      txt("His free Arduino course is long, patient,", 545, 549, 46, "Patrick Hand", undefined, 0.12, 0.03),
+      txt("and explains things so slowly that even", 545, 611, 46, "Patrick Hand", undefined, 0.12, 0.03),
+      txt("the resistor feels included.", 545, 673, 46, "Patrick Hand", undefined, 0.12, 0.03),
+      txt("Step two: build every circuit yourself.", 545, 735, 46, "Patrick Hand", undefined, 0.3, 0.03),
+      txt("Step three: do not skip to the robot episode.", 545, 797, 46, "Patrick Hand", undefined, 0.3, 0.03),
+      txt("(Claude is not responsible for burnt LEDs.)", 545, 868, 34, "Patrick Hand", GREY, 0.5, 0.03),
+    ];
+    placePage(items, "Chat page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  // Puts a new page break plus the given items into the timeline (after the selection, or at the end) and jumps to see the result.
+  function placePage(items, msg) {
+    leaveView(); computeTimes(); const anchor = sel || (editT != null ? anchorAt(editT) : anchorAt(Infinity));
+    const brk = { kind: "break" }, all = [brk, ...items];
+    all.forEach(c => { c.id = nextId++; if (c.color === undefined) delete c.color; });
+    if (anchor) insertNext(all, anchor); else { let prev = null; all.forEach(c => { if (prev) { c.link = prev.id; c.lag = GAP; } else { c.link = null; c.at = 0.4; } prev = c; }); els.push(...all); }
+    all.forEach(c => { if (c.want != null) c.lag = c.want; delete c.want; if (c.kind === "text") ensureFont(c); });
+    commit(); computeTimes(); const last = all[all.length - 1]; setSelection([]); goTo(last._start + 0.01); refreshUI(); toast(msg);
+  }
+  function loopArrowPts(cx, cy, r) {
+    const pts = []; for (let a = -40; a <= 250; a += 15) { const t = a * Math.PI / 180; pts.push([Math.round(cx + r * Math.cos(t)), Math.round(cy + r * Math.sin(t))]); }
+    const e = pts[pts.length - 1], t = 250 * Math.PI / 180, dx = -Math.sin(t), dy = Math.cos(t), h = 26, nx = -dy, ny = dx;
+    pts.push([Math.round(e[0] - dx * h + nx * h * 0.6), Math.round(e[1] - dy * h + ny * h * 0.6)], e.slice(), [Math.round(e[0] - dx * h - nx * h * 0.6), Math.round(e[1] - dy * h - ny * h * 0.6)]);
+    return pts;
+  }
+  // A page explaining setup() and loop() with colour-coded blink code and notes beside each part.
+  function addIdePage() {
+    const BLUE = "#2563eb", ORANGE = "#e07b00", GREY = "#7b8088";
+    const free = (pts, color, lag) => ({ kind: "free", pts, color, want: lag });
+    const txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const arrow = (x, y, color, lag) => ({ kind: "part", part: "arrow", x, y, rot: 180, scale: 0.6, color, want: lag });
+    const code = (t, y, color, lag) => txt(t, 190, y, 44, "DM Mono", color, lag, 0.04);
+    const items = [
+      txt("Every Arduino program has two parts", 130, 200, 84, "Caveat", undefined, 0.12, 0.03),
+      free(rrectPts(630, 628, 1000, 720, 26), undefined, 0.2),
+      txt("blink.ino", 165, 312, 30, "DM Mono", GREY, 0.1, 0.03),
+      code("void setup() {", 395, BLUE, 0.3), code("  pinMode(13, OUTPUT);", 455, BLUE, 0.1), code("}", 515, BLUE, 0.1),
+      arrow(1175, 450, BLUE, 0.5),
+      txt("setup() runs ONCE", 1230, 440, 68, "Caveat", BLUE, 0.1, 0.03),
+      txt("when the board wakes up.", 1230, 497, 44, "Patrick Hand", undefined, 0.1, 0.03),
+      txt("Like brushing your teeth.", 1230, 548, 38, "Patrick Hand", GREY, 0.1, 0.03),
+      code("void loop() {", 635, ORANGE, 0.9), code("  digitalWrite(13, HIGH);", 695, ORANGE, 0.1), code("  delay(1000);", 755, ORANGE, 0.1),
+      code("  digitalWrite(13, LOW);", 815, ORANGE, 0.1), code("  delay(1000);", 875, ORANGE, 0.1), code("}", 935, ORANGE, 0.1),
+      arrow(1175, 785, ORANGE, 0.5),
+      txt("loop() runs FOREVER", 1230, 775, 68, "Caveat", ORANGE, 0.1, 0.03),
+      txt("again, and again, and again...", 1230, 832, 44, "Patrick Hand", undefined, 0.1, 0.03),
+      txt("Like a song stuck in your head.", 1230, 883, 38, "Patrick Hand", GREY, 0.1, 0.03),
+      free(loopArrowPts(1690, 650, 52), ORANGE, 0.3),
+      txt("Everything between { and } belongs to that part.", 1230, 960, 36, "Patrick Hand", GREY, 0.8, 0.03),
+    ];
+    placePage(items, "IDE page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  $("idePage").onclick = addIdePage;
+  // A page explaining the breadboard: connected columns, the middle gap and the power rails, colour-coded to match the notes.
+  function addBreadboardPage() {
+    const BLUE = "#2563eb", ORANGE = "#e07b00", RED = "#c0392b", GREY = "#7b8088";
+    const free = (pts, color, lag) => ({ kind: "free", pts, color, want: lag });
+    const txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const head = (t, y, color, lag) => txt(t, 1110, y, 64, "Caveat", color, lag, 0.03), body = (t, y, lag) => txt(t, 1110, y, 40, "Patrick Hand", undefined, lag, 0.03);
+    const items = [
+      txt("What is a breadboard?", 130, 210, 90, "Caveat", undefined, 0.12, 0.03),
+      { kind: "part", part: "breadboard", x: 620, y: 640, rot: 0, scale: 1.35, want: 0.2 },
+      free([[296, 330], [944, 330]], RED, 0.6), free([[296, 363], [944, 363]], BLUE, 0.1),
+      head("Power rails", 345, RED, 0.2), body("The red row is plus (5V), the blue row", 398, 0.1), body("is minus (GND). Each row is one long", 446, 0.1), body("connection, so power reaches everywhere.", 494, 0.1),
+      free(rrectPts(512, 498, 54, 214, 24), BLUE, 0.7),
+      head("Short columns", 585, BLUE, 0.2), body("Every column of 5 holes is joined", 638, 0.1), body("underneath. Plug two parts into the", 686, 0.1), body("same column and they are connected.", 734, 0.1),
+      free(rrectPts(620, 640, 720, 48, 22), ORANGE, 0.7),
+      head("The middle gap", 825, ORANGE, 0.2), body("splits the board into two halves, so a", 878, 0.1), body("chip can sit across it without shorting.", 926, 0.1),
+      txt("(It has nothing to do with bread, sadly.)", 1110, 985, 34, "Patrick Hand", GREY, 0.8, 0.03),
+    ];
+    placePage(items, "Breadboard page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  $("breadboardPage").onclick = addBreadboardPage;
+  // A page showing the parts for the first tutorial: Arduino board, LED, resistor and two jumper wires, each on its own card.
+  // Pictures of the real parts (not circuit symbols): shapes are outlined, then filled with a loose pencil-style zigzag in the part's colour.
+  const R = (cx, cy, k) => (x, y) => [Math.round(cx + x * k), Math.round(cy + y * k)];
+  const snake = (P, x0, y0, x1, y1, gap) => { const pts = []; let d = 1; for (let y = y0; y <= y1; y += gap) { pts.push(d > 0 ? P(x0, y) : P(x1, y), d > 0 ? P(x1, y) : P(x0, y)); d = -d; } return pts; };
+  const rectPts = (P, x0, y0, x1, y1) => [P(x0, y0), P(x1, y0), P(x1, y1), P(x0, y1), P(x0, y0)];
+  const filledRect = (P, x0, y0, x1, y1, gap) => rectPts(P, x0, y0, x1, y1).concat(snake(P, x0, y0 + gap, x1, y1 - 1, gap));
+  const circlePts = (P, x, y, r) => { const o = []; for (let a = 0; a <= 360; a += 30) o.push(P(x + r * Math.cos(a * Math.PI / 180), y + r * Math.sin(a * Math.PI / 180))); return o; };
+  function addPartsPage() {
+    const ORANGE = "#e07b00", RED = "#c0392b", GREY = "#7b8088", TEAL = "#0f8b8d", TAN = "#c19a6b", BROWN = "#7a4b2a", GOLD = "#d4a017", CX = [300, 750, 1200, 1650];
+    const free = (pts, color, lag, dur) => ({ kind: "free", pts, color, want: lag, dur });
+    const txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const arduino = cx => { const k = 0.72, P = R(cx, 520, k);
+      return [free(rrectPts(cx, 520, 330 * k, 250 * k, 14 * k).concat(snake(P, -150, -100, 150, 110, 24)), TEAL, 0.3, 1.2),
+        free(rectPts(P, -205, -95, -135, -35), undefined, 0.1, 0.5), free(rectPts(P, -200, 45, -135, 105), undefined, 0.05, 0.5),
+        free(filledRect(P, -90, -118, 150, -96, 7), undefined, 0.1, 0.5), free(filledRect(P, -20, 96, 50, 118, 7), undefined, 0.05, 0.4), free(filledRect(P, 70, 96, 150, 118, 7), undefined, 0.05, 0.4),
+        free(filledRect(P, -10, -22, 100, 22, 8), undefined, 0.1, 0.5), free(circlePts(P, -100, -70, 13), undefined, 0.1, 0.3)]; };
+    const led = cx => { const k = 0.8, P = R(cx, 520, k), pts = [P(-46, 40), P(-46, -40)];
+      for (let a = 180; a <= 360; a += 15) { const t = a * Math.PI / 180; pts.push(P(46 * Math.cos(t), -40 + 46 * Math.sin(t))); }
+      pts.push(P(46, 40), P(56, 40), P(56, 54), P(-56, 54), P(-56, 40), P(-46, 40));
+      let d = 1; for (let y = 36; y >= -80; y -= 11) { const hw = y < -40 ? Math.sqrt(Math.max(0, 46 * 46 - (y + 40) * (y + 40))) - 3 : 43; pts.push(d > 0 ? P(-hw, y) : P(hw, y), d > 0 ? P(hw, y) : P(-hw, y)); d = -d; }
+      return [free(pts, RED, 0.3, 1.2), free([P(-20, 190), P(-20, 54), P(20, 54), P(20, 140)], undefined, 0.2, 0.8)]; };
+    // 5-band 220 ohm resistor: red, red, black, black, then a gap and the brown tolerance band
+    const resistor = cx => { const k = 1.15, P = R(cx, 520, k);
+      return [free(rrectPts(cx, 520, 150 * k, 52 * k, 22 * k).concat(snake(P, -62, -18, 62, 22, 13)), TAN, 0.3, 1.0),
+        free(filledRect(P, -56, -23, -47, 23, 6), RED, 0.1, 0.4), free(filledRect(P, -42, -23, -33, 23, 6), RED, 0.05, 0.4),
+        free(filledRect(P, -28, -23, -19, 23, 6), undefined, 0.05, 0.4), free(filledRect(P, -14, -23, -5, 23, 6), undefined, 0.05, 0.4), free(filledRect(P, 40, -23, 49, 23, 6), BROWN, 0.05, 0.4),
+        free([P(-140, 0), P(-75, 0)], undefined, 0.1, 0.4), free([P(75, 0), P(140, 0)], undefined, 0.05, 0.4)]; };
+    // male jumper wire, drawn from a photo: a thin cable runs into a black bullet-shaped plastic housing, with a long thin metal pin sticking out of the tip
+    const jumper = (cx, cy, color, lag) => {
+      const k = 0.78, half = 75, xl = cx - half, xr = cx + half;
+      const cable = [];
+      for (let i = 0; i <= 16; i++) { const t = i / 16; cable.push([Math.round(xl + (xr - xl) * t), Math.round(cy + 16 * Math.sin(t * 2 * Math.PI))]); }
+      const end = x0 => {                                           // x0 is where the cable meets the housing; dir points away from the cable
+        const dir = x0 < cx ? -1 : 1, P = (dx, dy) => [Math.round(x0 + dir * dx * k), Math.round(cy + dy * k)];
+        const pts = [P(112, 0), P(60, 0), P(60, -7), P(46, -11), P(6, -11), P(0, -8), P(0, 8), P(6, 11), P(46, 11), P(60, 7), P(60, 0)];
+        let d = 1; for (let y = -8; y <= 8; y += 4) { pts.push(d > 0 ? P(58, y) : P(2, y), d > 0 ? P(2, y) : P(58, y)); d = -d; }
+        return free(pts, undefined, 0.05, 0.6); };
+      return [free(cable, color, lag, 1.0), end(xl), end(xr)]; };
+    const card = (i, qty, name, line1, line2, draw, line3, darkLine2) => {
+      const cx = CX[i], L = cx - 200 + 36;
+      return [free(rrectPts(cx, 600, 400, 600, 34), undefined, 0.5, 0.9), txt(qty, L, 392, 92, "Caveat", ORANGE, 0.15, 0.1), ...draw(cx),
+        txt(name, L, 722, 62, "Caveat", undefined, 0.2, 0.03), txt(line1, L, 782, 31, "Patrick Hand", undefined, 0.1, 0.028), txt(line2, L, 826, 31, "Patrick Hand", darkLine2 ? undefined : GREY, 0.08, 0.028), ...(line3 ? [txt(line3, L, 872, 31, "Patrick Hand", GREY, 0.08, 0.028)] : [])];
+    };
+    const items = [
+      txt("What you need from the kit", 130, 200, 90, "Caveat", undefined, 0.12, 0.03),
+      ...card(0, "1x", "Arduino board", "The brain of the project.", "(The one with the USB port.)", arduino),
+      ...card(1, "1x", "LED", "Longer leg is plus (+).", "Only works one way round.", led),
+      ...card(2, "1x", "Resistor", "220 ohm, five bands:", "red, red, black, black, brown", resistor, "The LED's bodyguard.", true),
+      ...card(3, "2x", "Jumper wires", "Short ones. Any colour works.", "(Red and black keep you sane.)", cx => [...jumper(cx, 475, RED, 0.3), ...jumper(cx, 585, undefined, 0.2)]),
+      txt("That is it. Four kinds of parts. No soldering.", 130, 985, 40, "Patrick Hand", GREY, 0.7, 0.03),
+    ];
+    placePage(items, "Parts page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  $("partsPage").onclick = addPartsPage;
+  // A page that redraws the simple LED circuit diagram (5V source, resistor R1, LED, ground) and explains each part, with orange arrows showing the current loop.
+  function addCircuitPage() {
+    const RED = "#c0392b", BLUE = "#2563eb", PURPLE = "#6d3fc0", GREEN = "#2e8b57", ORANGE = "#e07b00", GREY = "#7b8088";
+    const free = (pts, color, lag, dur) => ({ kind: "free", pts, color, want: lag, dur });
+    const txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const label = (t, x, y, lag) => txt(t, x, y, 50, "Patrick Hand", undefined, lag, 0.04), head = (t, y, color, lag) => txt(t, 1130, y, 62, "Caveat", color, lag, 0.03), body = (t, y, lag) => txt(t, 1130, y, 38, "Patrick Hand", undefined, lag, 0.028);
+    const arrowPts = (x1, y1, x2, y2) => { const a = Math.atan2(y2 - y1, x2 - x1), h = 22, c = 0.45; return [[x1, y1], [x2, y2], [Math.round(x2 - h * Math.cos(a - c)), Math.round(y2 - h * Math.sin(a - c))], [x2, y2], [Math.round(x2 - h * Math.cos(a + c)), Math.round(y2 - h * Math.sin(a + c))]]; };
+    const chev = (x, y, d) => ({ r: [[-30, -28], [0, 0], [-30, 28]], l: [[30, -28], [0, 0], [30, 28]], u: [[-28, 30], [0, 0], [28, 30]], d: [[-28, -30], [0, 0], [28, -30]] }[d].map(q => [x + q[0], y + q[1]]));
+    const RS = R(300, 630, 1), RG = R(600, 880, 1);
+    const items = [
+      txt("Reading the circuit diagram", 130, 200, 90, "Caveat", undefined, 0.12, 0.03),
+      free([[300, 568], [300, 380], [600, 380]], undefined, 0.3, 0.9),
+      free([[600, 380], [620, 380], [635, 345], [665, 415], [695, 345], [725, 415], [755, 345], [770, 380], [790, 380]], undefined, 0.05, 0.7),
+      free([[790, 380], [900, 380], [900, 560]], undefined, 0.05, 0.7),
+      free([[860, 560], [940, 560], [900, 630], [860, 560]], undefined, 0.05, 0.6), free([[855, 640], [945, 640]], undefined, 0.05, 0.3),
+      free(arrowPts(955, 572, 1012, 622), undefined, 0.1, 0.5), free(arrowPts(955, 614, 1012, 664), undefined, 0.05, 0.5),
+      free([[900, 640], [900, 880], [300, 880], [300, 692]], undefined, 0.05, 1.3),
+      free(circlePts(RS, 0, 0, 62), undefined, 0.1, 0.8), free([[289, 601], [311, 601], [300, 601], [300, 590], [300, 612]], undefined, 0.05, 0.4), free([[289, 662], [311, 662]], undefined, 0.05, 0.2),
+      free(circlePts(RG, 0, 0, 7), undefined, 0.05, 0.3), { kind: "part", part: "ground", x: 600, y: 920, rot: 0, scale: 0.9, want: 0.05 },
+      label("Vs", 385, 625, 0.2), label("5V", 385, 680, 0.05), label("R1", 665, 470, 0.1), label("220 \u03A9", 640, 525, 0.05), label("LED", 745, 612, 0.1),
+      free(rrectPts(300, 630, 180, 180, 84), RED, 0.7, 0.8),
+      head("The power source", 300, RED, 0.2), body("5V from the Arduino. The + side pushes", 350, 0.1), body("electricity out, the - side takes it back.", 396, 0.1),
+      free(rrectPts(695, 380, 290, 130, 30), BLUE, 0.6, 0.8),
+      head("R1, the resistor", 470, BLUE, 0.2), body("Limits the current so the LED", 520, 0.1), body("does not burn out. 220 ohm here.", 566, 0.1),
+      free(rrectPts(900, 598, 170, 150, 30), PURPLE, 0.6, 0.8),
+      head("The LED", 640, PURPLE, 0.2), body("A one-way street: current flows the way", 690, 0.1), body("the triangle points. The bar side is the", 736, 0.1), body("short leg (-).", 782, 0.1),
+      free(rrectPts(600, 935, 150, 110, 28), GREEN, 0.6, 0.8),
+      head("Ground (GND)", 860, GREEN, 0.2), body("The return path, and the 0 volt point that", 910, 0.1), body("every other voltage is measured from.", 956, 0.1),
+      free(chev(300, 480, "u"), ORANGE, 0.8, 0.3), free(chev(470, 380, "r"), ORANGE, 0.05, 0.3), free(chev(900, 760, "d"), ORANGE, 0.05, 0.3), free(chev(760, 880, "l"), ORANGE, 0.05, 0.3),
+      txt("Follow the orange arrows:", 410, 770, 40, "Patrick Hand", ORANGE, 0.2, 0.03), txt("current flows round the loop.", 410, 816, 40, "Patrick Hand", ORANGE, 0.05, 0.03),
+      txt("No loop, no light. (This LED has no off switch. Very committed.)", 1130, 1030, 34, "Patrick Hand", GREY, 0.8, 0.03),
+    ];
+    placePage(items, "Circuit page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  $("circuitPage").onclick = addCircuitPage;
+  // A step-by-step page showing the LED wired on a breadboard: red wire from 5V, resistor, LED (long leg first), grey wire back to GND.
+  function addBuildPage() {
+    const RED = "#c0392b", BLUE = "#2563eb", PURPLE = "#6d3fc0", DARK = "#4b5563", GREY = "#7b8088", TEAL = "#0f8b8d", TAN = "#c19a6b", BROWN = "#7a4b2a", WIRE = "#6b7078";
+    const free = (pts, color, lag, dur) => ({ kind: "free", pts, color, want: lag, dur });
+    const txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const head = (t, y, color, lag) => txt(t, 1190, y, 58, "Caveat", color, lag, 0.03), body = (t, y, lag) => txt(t, 1190, y, 36, "Patrick Hand", undefined, lag, 0.028);
+    const BX = i => Math.round(620 + (-560 + 40 * i) * 0.85), BY = r => Math.round(830 + r * 0.85);        // breadboard hole positions on the page
+    const ak = 0.9, AP = R(330, 430, ak);
+    const ardu = [free(rrectPts(330, 430, 330 * ak, 250 * ak, 14 * ak).concat(snake(AP, -150, -100, 150, 110, 24)), TEAL, 0.3, 1.0),
+      free(rectPts(AP, -205, -95, -135, -35), undefined, 0.05, 0.4), free(rectPts(AP, -200, 45, -135, 105), undefined, 0.05, 0.4),
+      free(filledRect(AP, -90, -118, 150, -96, 7), undefined, 0.05, 0.4), free(filledRect(AP, -20, 96, 50, 118, 7), undefined, 0.05, 0.4), free(filledRect(AP, 70, 96, 150, 118, 7), undefined, 0.05, 0.4),
+      free(filledRect(AP, -10, -22, 100, 22, 8), undefined, 0.05, 0.4), free(circlePts(AP, -100, -70, 13), undefined, 0.05, 0.3)];
+    const RP = R(484, 779, 0.5);
+    const resistor = [free(rrectPts(484, 779, 75, 26, 11).concat(snake(RP, -62, -18, 62, 22, 13)), TAN, 0.3, 0.7),
+      free(filledRect(RP, -56, -23, -44, 23, 6), RED, 0.05, 0.3), free(filledRect(RP, -40, -23, -28, 23, 6), RED, 0.03, 0.3), free(filledRect(RP, -24, -23, -12, 23, 6), undefined, 0.03, 0.3),
+      free(filledRect(RP, -8, -23, 4, 23, 6), undefined, 0.03, 0.3), free(filledRect(RP, 40, -23, 52, 23, 6), BROWN, 0.03, 0.3),
+      free([RP(-136, 0), RP(-75, 0)], undefined, 0.05, 0.3), free([RP(75, 0), RP(136, 0)], undefined, 0.03, 0.3)];
+    const LP = R(569, 656, 0.85), lpts = [LP(-46, 40), LP(-46, -40)];
+    for (let a = 180; a <= 360; a += 15) { const t = a * Math.PI / 180; lpts.push(LP(46 * Math.cos(t), -40 + 46 * Math.sin(t))); }
+    lpts.push(LP(46, 40), LP(56, 40), LP(56, 54), LP(-56, 54), LP(-56, 40), LP(-46, 40));
+    let dd = 1; for (let y = 36; y >= -80; y -= 11) { const hw = y < -40 ? Math.sqrt(Math.max(0, 46 * 46 - (y + 40) * (y + 40))) - 3 : 43; lpts.push(dd > 0 ? LP(-hw, y) : LP(hw, y), dd > 0 ? LP(hw, y) : LP(-hw, y)); dd = -dd; }
+    const led = [free(lpts, RED, 0.3, 1.0), free([LP(-20, 105), LP(-20, 54)], undefined, 0.05, 0.4), free([LP(20, 105), LP(20, 54)], undefined, 0.03, 0.4)];
+    const items = [
+      txt("Building it on the breadboard", 130, 200, 90, "Caveat", undefined, 0.12, 0.03),
+      ...ardu,
+      txt("GND", 262, 580, 28, "Patrick Hand", GREY, 0.1, 0.03), txt("5V", 372, 580, 28, "Patrick Hand", GREY, 0.05, 0.03),
+      { kind: "part", part: "breadboardwide", x: 620, y: 830, rot: 0, scale: 0.85, want: 0.3 },
+      free([[357, 536], [357, 700], [BX(8), 700], [BX(8), BY(-100)]], RED, 0.6, 1.0),
+      free(circlePts(R(357, 536, 1), 0, 0, 22), RED, 0.3, 0.4), free(circlePts(R(BX(8), BY(-100), 1), 0, 0, 22), RED, 0.05, 0.4),
+      head("1. Power from the 5V pin", 330, RED, 0.2), body("A red wire from the 5V pin to a", 380, 0.1), body("column on the breadboard.", 424, 0.1),
+      ...resistor,
+      free(rrectPts(484, 779, 190, 60, 24), BLUE, 0.4, 0.6),
+      head("2. The resistor", 510, BLUE, 0.2), body("One leg in the red wire's column, the", 560, 0.1), body("other leg four holes along.", 604, 0.1),
+      ...led,
+      free(rrectPts(569, 664, 130, 190, 34), PURPLE, 0.4, 0.7),
+      head("3. The LED", 690, PURPLE, 0.2), body("Long leg in the resistor's second column,", 740, 0.1), body("short leg in the very next column.", 784, 0.1),
+      free([[328, 536], [328, BY(-20)], [BX(13), BY(-20)]], WIRE, 0.6, 1.2),
+      free(circlePts(R(328, 536, 1), 0, 0, 22), DARK, 0.3, 0.4), free(circlePts(R(BX(13), BY(-20), 1), 0, 0, 22), DARK, 0.05, 0.4),
+      head("4. Back to ground", 870, DARK, 0.2), body("A grey wire joins the short leg's column", 920, 0.1), body("to the GND pin. That closes the loop.", 964, 0.1),
+      txt("Wire it with the USB unplugged. If it will not light, flip the LED round.", 130, 1050, 34, "Patrick Hand", GREY, 0.9, 0.03),
+    ];
+    placePage(items, "Build page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  $("buildPage").onclick = addBuildPage;
+  // Shared pictures of the real parts for the wiring pages: board, 5-band 220 ohm resistor, and a dome LED in any colour.
+  const mkFree = (pts, color, lag, dur) => ({ kind: "free", pts, color, want: lag, dur });
+  function picArduino(cx, cy, k) { const P = R(cx, cy, k);
+    return [mkFree(rrectPts(cx, cy, 330 * k, 250 * k, 14 * k).concat(snake(P, -150, -100, 150, 110, 24)), "#0f8b8d", 0.3, 1.0),
+      mkFree(rectPts(P, -205, -95, -135, -35), undefined, 0.05, 0.4), mkFree(rectPts(P, -200, 45, -135, 105), undefined, 0.05, 0.4),
+      mkFree(filledRect(P, -90, -118, 150, -96, 7), undefined, 0.05, 0.4), mkFree(filledRect(P, -20, 96, 50, 118, 7), undefined, 0.05, 0.4), mkFree(filledRect(P, 70, 96, 150, 118, 7), undefined, 0.05, 0.4),
+      mkFree(filledRect(P, -10, -22, 100, 22, 8), undefined, 0.05, 0.4), mkFree(circlePts(P, -100, -70, 13), undefined, 0.05, 0.3)]; }
+  function picResistor5(cx, cy, k) { const P = R(cx, cy, k);
+    return [mkFree(rrectPts(cx, cy, 150 * k, 52 * k, 22 * k).concat(snake(P, -62, -18, 62, 22, 13)), "#c19a6b", 0.3, 0.7),
+      mkFree(filledRect(P, -56, -23, -44, 23, 6), "#c0392b", 0.05, 0.3), mkFree(filledRect(P, -40, -23, -28, 23, 6), "#c0392b", 0.03, 0.3), mkFree(filledRect(P, -24, -23, -12, 23, 6), undefined, 0.03, 0.3),
+      mkFree(filledRect(P, -8, -23, 4, 23, 6), undefined, 0.03, 0.3), mkFree(filledRect(P, 40, -23, 52, 23, 6), "#7a4b2a", 0.03, 0.3),
+      mkFree([P(-136, 0), P(-75, 0)], undefined, 0.05, 0.3), mkFree([P(75, 0), P(136, 0)], undefined, 0.03, 0.3)]; }
+  function picLed(cx, cy, k, color) { const P = R(cx, cy, k), pts = [P(-46, 40), P(-46, -40)];
+    for (let a = 180; a <= 360; a += 15) { const t = a * Math.PI / 180; pts.push(P(46 * Math.cos(t), -40 + 46 * Math.sin(t))); }
+    pts.push(P(46, 40), P(56, 40), P(56, 54), P(-56, 54), P(-56, 40), P(-46, 40));
+    let d = 1; for (let y = 36; y >= -80; y -= 11) { const hw = y < -40 ? Math.sqrt(Math.max(0, 46 * 46 - (y + 40) * (y + 40))) - 3 : 43; pts.push(d > 0 ? P(-hw, y) : P(hw, y), d > 0 ? P(hw, y) : P(-hw, y)); d = -d; }
+    return [mkFree(pts, color, 0.3, 1.0), mkFree([P(-20, 105), P(-20, 54)], undefined, 0.05, 0.4), mkFree([P(20, 105), P(20, 54)], undefined, 0.03, 0.4)]; }
+  // A step-by-step page for two LEDs: pin 9 (red wire) and pin 10 (blue wire), each with its own resistor, sharing one ground rail.
+  function addTwoLedPage() {
+    const RED = "#c0392b", BLUE = "#2563eb", GREEN = "#2e8b57", GOLD = "#d4a017", ORANGE = "#e07b00", PURPLE = "#6d3fc0", DARK = "#4b5563", GREY = "#7b8088";
+    const free = mkFree, txt = (text, x, y, size, font, color, lag, speed) => ({ kind: "text", text, x, y, size, rot: 0, font, color, want: lag, dur: Math.max(0.4, text.length * speed) });
+    const head = (t, y, color, lag) => txt(t, 1190, y, 58, "Caveat", color, lag, 0.03), body = (t, y, lag) => txt(t, 1190, y, 36, "Patrick Hand", undefined, lag, 0.028);
+    const BX = i => Math.round(620 + (-560 + 40 * i) * 0.85), BY = r => Math.round(830 + r * 0.85), pin = (x, y, r) => circlePts(R(x, y, 1), 0, 0, r);
+    const items = [
+      txt("Two LEDs, two pins", 130, 200, 90, "Caveat", undefined, 0.12, 0.03),
+      ...picArduino(330, 430, 0.9),
+      txt("GND", 262, 580, 28, "Patrick Hand", GREY, 0.1, 0.03), txt("9", 404, 580, 28, "Patrick Hand", GREY, 0.05, 0.03), txt("10", 437, 580, 28, "Patrick Hand", GREY, 0.03, 0.03),
+      { kind: "part", part: "breadboardwide", x: 620, y: 830, rot: 0, scale: 0.85, want: 0.3 },
+      free([[420, 536], [420, 640], [BX(5), 640], [BX(5), BY(-100)]], RED, 0.5, 1.0), free(pin(420, 536, 12), RED, 0.2, 0.3),
+      free([[433, 536], [433, 565], [BX(13), 565], [BX(13), BY(-100)]], BLUE, 0.2, 1.0), free(pin(433, 536, 12), BLUE, 0.1, 0.3),
+      head("1. Two pins, two wires", 330, RED, 0.2), body("Pin 9 (red wire) and pin 10 (blue wire)", 380, 0.1), body("each control their own LED.", 424, 0.1),
+      ...picResistor5(399, 779, 0.5), ...picResistor5(654, 779, 0.5),
+      free(rrectPts(399, 779, 190, 60, 24), ORANGE, 0.4, 0.6), free(rrectPts(654, 779, 190, 60, 24), ORANGE, 0.1, 0.6),
+      head("2. Two resistors", 510, ORANGE, 0.2), body("Every LED gets its own resistor, in the", 560, 0.1), body("same column as its wire.", 604, 0.1),
+      ...picLed(501, 656, 0.85, RED), ...picLed(739, 656, 0.85, GOLD),
+      free(rrectPts(501, 664, 130, 190, 34), PURPLE, 0.4, 0.7), free(rrectPts(739, 664, 130, 190, 34), PURPLE, 0.1, 0.7),
+      head("3. Two LEDs", 690, PURPLE, 0.2), body("Long leg on the resistor side.", 740, 0.1), body("Short leg on the ground side.", 784, 0.1),
+      free([[328, 536], [328, 612], [BX(1), 612], [BX(1), BY(-165)]], undefined, 0.5, 1.0), free(pin(328, 536, 12), DARK, 0.2, 0.3),
+      free([[BX(11), BY(-165)], [BX(11), BY(-20)], [BX(10), BY(-20)]], undefined, 0.3, 0.9), free([[BX(18), BY(-20)], [810, BY(-20)], [810, BY(-165)]], GREEN, 0.2, 0.9),
+      free([[150, BY(-165)], [1090, BY(-165)]], BLUE, 0.3, 0.9),
+      free(rrectPts(620, 700, 1000, 52, 20), DARK, 0.3, 0.8),
+      head("4. One shared ground", 870, DARK, 0.2), body("The black wire links GND to the blue rail.", 920, 0.1), body("Both short legs return to that rail.", 964, 0.1),
+      txt("Twice the lights, twice the ways to plug it in wrong. Go slowly.", 130, 1050, 34, "Patrick Hand", GREY, 0.9, 0.03),
+    ];
+    placePage(items, "Two-LED page added. Double-click any line to rewrite it, and press Play to watch it.");
+  }
+  $("twoLedPage").onclick = addTwoLedPage;
+  $("chatPage").onclick = addChatPage;
+  async function addImageFiles(files, at) {
+    const list = [...files].filter(f => /^image\//.test(f.type)); if (!list.length) { toast("That isn't a picture. Try a PNG, JPG or WebP."); return; }
+    leaveView(); let n = 0, made = [];
+    for (const f of list) {
+      try { const r = await prepareImage(f), id = "im" + Math.random().toString(36).slice(2, 9); addImageRec(id, r.src, r.w, r.h);
+        const el = { kind: "image", img: id, iw: r.w, ih: r.h, x: (at ? at[0] : W / 2) + n * 40, y: (at ? at[1] : H / 2) + n * 40, rot: 0, scale: Math.min(1.5, 720 / Math.max(r.w, r.h)), imgStyle: "photo", detail: 0.6 };
+        add(el); made.push(el); n++; }
+      catch (e) { toast("Couldn't open " + f.name + "."); }
+    }
+    if (made.length) { setSelection(made); setTool("select"); commit(); toast(made.length > 1 ? made.length + " images added." : "Image added. Change its look in the panel on the right."); }
+  }
+  $("addImage").onclick = () => $("imgFile").click();
+  $("imgFile").onchange = e => { addImageFiles(e.target.files); e.target.value = ""; };
+  { const wrap = document.querySelector(".canvas-wrap");
+    wrap.addEventListener("dragover", e => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+    wrap.addEventListener("drop", e => { if (!e.dataTransfer || !e.dataTransfer.files.length) return; e.preventDefault(); addImageFiles(e.dataTransfer.files, pos(e)); }); }
+  document.addEventListener("paste", e => {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || recording) return;
+    const files = [...((e.clipboardData && e.clipboardData.files) || [])].filter(f => /^image\//.test(f.type));
+    if (files.length) { e.preventDefault(); addImageFiles(files); return; }
+    if (clip) { e.preventDefault(); pasteClip(); }
+  });
+  const markClipboard = e => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || !clip || !selList().length && e.type === "copy") return; e.clipboardData.setData("text/plain", "Sketchbook Studio items"); e.preventDefault(); };
+  document.addEventListener("copy", markClipboard); document.addEventListener("cut", markClipboard);
+  $("s-exit").addEventListener("change", e => { S.exit = e.target.value; commit(); });
+  $("newPage").onclick = () => {
+    leaveView(); computeTimes(); const anchor = sel || (editT != null ? anchorAt(editT) : anchorAt(Infinity)), brk = { id: nextId++, kind: "break" };
+    if (anchor) insertNext([brk], anchor); else els.push(brk);
+    commit(); computeTimes(); setSelection([brk]); goTo(brk._start + brk._dur + 0.01); refreshUI();
+    toast("New page added. Everything before it leaves the board here. Add the next slide's items now.");
+  };
+  document.querySelectorAll(".tool").forEach(b => b.onclick = () => setTool(b.dataset.tool));
+  Object.keys(PARTS).forEach(key => {
+    const b = document.createElement("button"); b.className = "part"; b.dataset.part = key; b.title = PARTS[key].name;
+    const c = document.createElement("canvas"); c.width = 160; c.height = 100; const x = c.getContext("2d");
+    const all = PARTS[key].strokes.flat(), xs = all.map(p => p[0]), ys = all.map(p => p[1]), bw = Math.max(...xs) - Math.min(...xs) || 1, bh = Math.max(...ys) - Math.min(...ys) || 1;
+    const sc = Math.min(130 / bw, 76 / bh), cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+    x.translate(80, 50); x.scale(sc, sc); x.translate(-cx, -cy); x.strokeStyle = "#1b1b1b"; x.lineWidth = key === "breadboard" ? 3 / sc * 1.4 : 2.6 / sc; x.lineCap = x.lineJoin = "round";
+    PARTS[key].strokes.forEach(s => { x.beginPath(); s.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.stroke(); });
+    const n = document.createElement("span"); n.textContent = PARTS[key].name; b.append(c, n);
+    b.onclick = () => { if (wireDraft) finishWire(); placePart = key; placeRot = 0; setTool("part"); };
+    $("parts").append(b);
+  });
+
+  // ---------------------------------------------------------------- timeline
+  function buildTimeline() {
+    const inner = $("tlinner"); inner.textContent = ""; const trackW = Math.ceil((total + 1) * pps);
+    const ruler = document.createElement("div"); ruler.className = "tl-row tl-ruler"; ruler.innerHTML = '<div class="tl-lab" style="cursor:default;line-height:23px">Seconds</div>';
+    const rt = document.createElement("div"); rt.className = "tl-track"; rt.style.width = trackW + "px"; rt.id = "rulerTrack";
+    const step = pps >= 90 ? 1 : pps >= 45 ? 2 : 5;
+    for (let s = 0; s * pps < trackW; s += step) { const t = document.createElement("div"); t.className = "tick"; t.style.left = s * pps + "px"; t.textContent = s + "s"; rt.append(t); }
+    ruler.append(rt); inner.append(ruler);
+    els.forEach(el => {
+      const row = document.createElement("div"); row.className = "tl-row" + (selList().includes(el) ? " sel" : ""); row.dataset.id = el.id;
+      const lab = document.createElement("div"); lab.className = "tl-lab"; lab.textContent = label(el); lab.title = label(el);
+      lab.onclick = e => { if (e.shiftKey) { const l = selList().slice(), i = l.indexOf(el); i >= 0 ? l.splice(i, 1) : l.push(el); setSelection(l); } else { setSelection([el]); focusView(el); } setTool("select"); refreshUI(); dirty = true; };
+      const tr = document.createElement("div"); tr.className = "tl-track"; tr.style.width = trackW + "px";
+      const bar = document.createElement("div"); bar.className = "bar" + (selList().includes(el) ? " sel" : ""); bar.dataset.id = el.id; bar.style.background = el.kind === "image" ? "#4b6584" : el.kind === "break" ? "repeating-linear-gradient(45deg,#c2410c,#c2410c 6px,#9a3412 6px,#9a3412 12px)" : colorOf(el); if (el.link != null && (el.lag || 0) < 0) bar.classList.add("ovl");
+      bar.style.left = el._start * pps + "px"; bar.style.width = Math.max(10, el._dur * pps) + "px"; bar.textContent = label(el);
+      bar.title = label(el) + ": starts " + el._start.toFixed(2) + "s, takes " + el._dur.toFixed(2) + "s";
+      tr.append(bar);
+      if (el.kind !== "break") { const st = document.createElement("div"); st.className = "stay" + (isFinite(el._vanish) ? "" : " open"); st.dataset.id = el.id;
+        const e0 = el._start + el._dur, e1 = isFinite(el._vanish) ? el._vanish : total - 0.4; st.style.left = e0 * pps + "px"; st.style.width = Math.max(0, (e1 - e0) * pps) + "px";
+        st.title = isFinite(el._vanish) ? "Leaves the board at " + el._vanish.toFixed(1) + "s" : "Stays until the end"; tr.append(st); }
+      row.append(lab, tr); inner.append(row);
+    });
+    const ph = document.createElement("div"); ph.id = "playhead"; inner.append(ph); placePlayhead();
+  }
+  function headT() { return isFinite(previewT) ? previewT : (resumeT != null ? resumeT : total); }
+  function placePlayhead() { const ph = $("playhead"); if (!ph) return; const t = headT(); ph.style.transform = "translateX(" + (t * pps) + "px)";
+    if (playing) { const sc = $("tlscroll"), x = LABW + t * pps; if (x > sc.scrollLeft + sc.clientWidth - 30 || x < sc.scrollLeft + LABW) sc.scrollLeft = Math.max(0, x - LABW - 40); } }
+  $("zoom").addEventListener("input", e => { pps = +e.target.value; buildTimeline(); });
+  $("tidy").onclick = () => { computeTimes(); let prev = null;
+    for (const el of [...els].sort((a, b) => a._start - b._start)) { if (prev) { el.link = prev.id; el.lag = GAP; delete el.at; } else { el.link = null; el.at = 0.4; delete el.lag; } prev = el; }
+    commit(); };
+
+  function seekTo(t) { t = clamp(t, 0, total); editT = null; previewT = t; resumeT = null; if (playing) playStart = performance.now() - t * 1000; dirty = true; }
+  const tin = $("tlinner");
+  tin.addEventListener("pointerdown", e => {
+    if (recording) return;
+    const rt = e.target.closest("#rulerTrack");
+    if (rt) { tdrag = { mode: "seek", rt }; rt.setPointerCapture(e.pointerId); seekTo((e.clientX - rt.getBoundingClientRect().left) / pps); return; }
+    const bar = e.target.closest(".bar"); if (!bar) return;
+    const el = els.find(x => x.id === +bar.dataset.id); if (!el) return;
+    const edge = e.offsetX > bar.clientWidth - 10;
+    if (e.shiftKey) { const l = selList().slice(), i = l.indexOf(el); i >= 0 ? l.splice(i, 1) : l.push(el); setSelection(l); updateSelUI(); e.preventDefault(); return; }
+    if (!selList().includes(el)) { setSelection([el]); focusView(el); updateSelUI(); }
+    const grp = !edge && multi.length > 1 && multi.includes(el) ? multi.slice() : null;
+    tdrag = { mode: edge ? "resize" : "move", el, bar, x0: e.clientX, s0: el._start, dur0: el._dur, moved: false, group: grp, starts: new Map((grp || [el]).map(m => [m, m._start])),
+      snap: els.map(x => ({ e: x, link: x.link, lag: x.lag, at: x.at, dur: x.dur })) };
+    bar.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  function refreshColorUI() { const l = selList(), cur = (l.length ? colorOf(l[l.length - 1]) : S.pen).toLowerCase();
+    document.querySelectorAll("#colSw .sw").forEach(b => b.classList.toggle("active", b.dataset.c === cur));
+    $("colTitle").textContent = multi.length ? "Colour of " + multi.length + " selected" : sel ? "Colour of selected" : "Colour for new items"; }
+  function updateSelUI() { const l = selList();
+    document.querySelectorAll("#tlinner .tl-row[data-id]").forEach(r => r.classList.toggle("sel", l.some(x => x.id === +r.dataset.id)));
+    document.querySelectorAll("#tlinner .bar").forEach(b => b.classList.toggle("sel", l.some(x => x.id === +b.dataset.id)));
+    $("nosel").hidden = l.length > 0; $("selfields").hidden = !sel; $("multisel").hidden = !multi.length; $("multicount").textContent = multi.length + " items selected";
+    syncInspector(); refreshColorUI(); dirty = true; }
+  function positionBars() {
+    document.querySelectorAll("#tlinner .bar").forEach(b => { const el = els.find(x => x.id === +b.dataset.id); if (!el) return;
+      b.style.left = el._start * pps + "px"; b.style.width = Math.max(10, el._dur * pps) + "px"; b.classList.toggle("ovl", el.link != null && (el.lag || 0) < 0);
+      b.title = label(el) + ": starts " + el._start.toFixed(2) + "s, takes " + el._dur.toFixed(2) + "s"; });
+    document.querySelectorAll("#tlinner .stay").forEach(st => { const el = els.find(x => x.id === +st.dataset.id); if (!el) return; const e0 = el._start + el._dur, e1 = isFinite(el._vanish) ? el._vanish : total - 0.4;
+      st.style.left = e0 * pps + "px"; st.style.width = Math.max(0, (e1 - e0) * pps) + "px"; st.classList.toggle("open", !isFinite(el._vanish)); });
+  }
+  tin.addEventListener("pointermove", e => {
+    if (!tdrag) return;
+    if (tdrag.mode === "seek") { seekTo((e.clientX - tdrag.rt.getBoundingClientRect().left) / pps); return; }
+    const el = tdrag.el, dt = (e.clientX - tdrag.x0) / pps, sticky = S.sticky !== e.altKey; tdrag.moved = true;
+    tdrag.snap.forEach(q => { q.e.link = q.link; q.e.lag = q.lag; q.e.at = q.at; q.e.dur = q.dur; }); computeTimes();      // always work from where the drag began
+    const members = tdrag.group || [el], skip = new Set(members); if (sticky) members.forEach(m => descendants(m).forEach(d => skip.add(d)));
+    const edges = []; for (const o of els) if (!skip.has(o)) edges.push(o._start, o._start + o._dur);
+    const near = v => { for (const g of edges) if (Math.abs(g - v) * pps < 8) return g; return null; };
+    if (tdrag.mode === "move") {
+      let t = Math.max(0, r05(tdrag.s0 + dt)); const a = near(t), b = near(t + el._dur); if (a != null) t = a; else if (b != null) t = Math.max(0, b - el._dur);
+      const delta = t - tdrag.s0, roots = members.filter(m => { const q = m.link != null ? els.find(x => x.id === m.link) : null; return !q || !members.includes(q); });
+      roots.forEach(r => setStart(r, tdrag.starts.get(r) + delta, sticky));
+    } else {
+      let end = r05(tdrag.s0 + tdrag.dur0 + dt); const g = near(end); if (g != null) end = g;
+      const oldEnd = el._start + el._dur; el.dur = Math.max(0.2, end - el._start); computeTimes();
+      if (!sticky) { const shift = el._start + el._dur - oldEnd; followersOf(el).forEach(f => { f.lag = (f.lag || 0) - shift; }); computeTimes(); }
+    }
+    positionBars(); dirty = true;
+  });
+  tin.addEventListener("pointerup", () => { if (!tdrag) return; const t = tdrag; tdrag = null; if (t.mode !== "seek" && t.moved) commit(); });
+  tin.addEventListener("dblclick", e => { const bar = e.target.closest(".bar"); if (!bar) return; const el = els.find(x => x.id === +bar.dataset.id); if (el && el.dur != null) { delete el.dur; commit(); } });
+
+  // ---------------------------------------------------------------- playback
+  function setPlayLabel() { $("play").textContent = playing ? "Pause" : (resumeT != null || (isFinite(previewT) && previewT > 0)) ? "Resume" : "Play"; }
+  function startPlay() {
+    initAudio(); if (editT != null && resumeT == null) resumeT = editT; editT = null;
+    if (!isFinite(previewT)) previewT = resumeT != null ? resumeT : 0;
+    if (previewT >= total + S.hold - 0.05) previewT = 0;
+    resumeT = null; playStart = performance.now() - previewT * 1000; playing = true; setPlayLabel(); dirty = true;
+  }
+  function pausePlay() { if (!playing) return; playing = false; setPlayLabel(); dirty = true; }
+  function togglePlay() { if (recording) return; playing ? pausePlay() : startPlay(); }
+  $("play").onclick = togglePlay;
+  $("showall").onclick = () => { if (recording) return; playing = false; previewT = Infinity; resumeT = null; editT = null; setPlayLabel(); dirty = true; };
+  $("scrub").addEventListener("input", e => { if (recording) return; const v = +e.target.value / 1000; seekTo(v >= 0.999 ? total : v * total); if (v >= 0.999) { previewT = Infinity; playing = false; setPlayLabel(); } });
+
+  let lastLabelKey = "";
+  function loop(now) {
+    if (playing) { previewT = (now - playStart) / 1000;
+      if (!recording && previewT > total + S.hold) { playing = false; previewT = Infinity; resumeT = null; setPlayLabel(); } }
+    if (playing || dirty || recording) {
+      render(isFinite(previewT) ? previewT : Infinity, isFinite(previewT) ? null : editT); drawOverlay(); dirty = false;
+      $("viewInfo").textContent = editT != null && !playing ? "Editing the board as it is at " + fmt(editT) + ". Show all to see everything." : "";
+      const tt = Math.min(headT(), total); $("time").textContent = fmt(tt) + " / " + fmt(total); $("scrub").value = Math.round(tt / total * 1000);
+      placePlayhead(); audioUpdate(playing, previewT);
+      const k = playing + "|" + (resumeT != null) + "|" + isFinite(previewT); if (k !== lastLabelKey) { lastLabelKey = k; setPlayLabel(); }
+      if (recTrack && recTrack.requestFrame) recTrack.requestFrame();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------------------------------------------------------------- own sound
+  $("ownSnd").onclick = () => { if (userBuf) { userBuf = null; $("ownSnd").textContent = "Use my own sound"; toast("Back to the built-in sound."); } else $("sndFile").click(); };
+  $("sndFile").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; initAudio(); if (!AC) { toast("This browser can't play audio."); return; }
+    try { const buf = await AC.decodeAudioData(await f.arrayBuffer()); userBuf = buf; startUser(); $("ownSnd").textContent = "Back to built-in sound"; toast("Using " + f.name + " as the drawing sound."); }
+    catch (err) { toast("Couldn't read that audio file. Try an mp3, wav or m4a."); } };
+
+  // ---------------------------------------------------------------- export
+  let toastTimer = 0;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3200); }
+  let dl = null;
+  async function getDl() { if (dl) return dl; try { dl = await window.claude.use("downloads"); } catch (e) { dl = null; } return dl; }
+  async function save(filename, data) {
+    const d = await getDl(); if (!d) { toast("Saving files isn't available in this view."); return false; }
+    try { await d.save({ filename, data }); toast("Saved " + filename); return true; }
+    catch (e) { toast(e && e.code === "declined" ? "Save cancelled." : "Could not save: " + ((e && e.message) || "unknown error")); return false; }
+  }
+  $("save").onclick = () => save("sketch-scene.json", fileSnapshot());
+  $("png").onclick = () => { playing = false; previewT = Infinity; setPlayLabel(); render(Infinity, editT); cv.toBlob(b => b ? save("sketch.png", b) : toast("Could not make the image."), "image/png"); };
+  $("open").onclick = () => $("file").click();
+  $("file").onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+    r.onload = () => { try { restore(String(r.result)); setSelection([]); previewT = Infinity; resumeT = null; commit(); toast("Scene opened."); } catch (err) { toast("That file isn't a scene from this editor."); } };
+    r.readAsText(f); e.target.value = ""; };
+  let clearArmed = 0;
+  $("clear").onclick = () => { if (!clearArmed) { $("clear").textContent = "Sure? Click again"; clearArmed = setTimeout(() => { $("clear").textContent = "Clear"; clearArmed = 0; }, 3000); return; }
+    clearTimeout(clearArmed); clearArmed = 0; $("clear").textContent = "Clear"; els = []; setSelection([]); commit(); };
+  $("undo").onclick = undo; $("redo").onclick = redo; $("copyBtn").onclick = () => { if (copySel()) toast("Copied. Paste puts it next in the timeline."); }; $("pasteBtn").onclick = pasteClip;
+
+  let recStream = null, recTrack = null;
+  $("video").onclick = () => {
+    if (recording) return;
+    if (!window.MediaRecorder) { toast("This browser can't record video. Screen-record the Play preview instead."); return; }
+    initAudio(); const withAudio = !!(S.sound && AC && recDest);
+    const types = (withAudio ? ["video/mp4;codecs=avc1.640028,mp4a.40.2", "video/webm;codecs=vp9,opus"] : []).concat(["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]);
+    const mime = types.find(t => MediaRecorder.isTypeSupported(t)); if (!mime) { toast("No supported video format in this browser."); return; }
+    const ext = mime.startsWith("video/mp4") ? "mp4" : "webm", hasAudioCodec = /mp4a|opus/.test(mime);
+    playing = false; computeTimes(); recording = true; resumeT = null; const btn = $("video"); btn.disabled = true; btn.textContent = "Recording...";
+    $("help").innerHTML = '<span class="rec">Recording in real time.</span> Keep this tab visible until it finishes.';
+    recStream = cv.captureStream(0); recTrack = recStream.getVideoTracks()[0];
+    if (!recTrack.requestFrame) { recStream.getTracks().forEach(t => t.stop()); recStream = cv.captureStream(30); recTrack = null; }
+    if (withAudio && hasAudioCodec) recDest.stream.getAudioTracks().forEach(t => recStream.addTrack(t));
+    const chunks = [], rec = new MediaRecorder(recStream, { mimeType: mime, videoBitsPerSecond: 14e6 });
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = async () => {
+      recording = false; recStream.getVideoTracks().forEach(t => t.stop()); recStream = null; recTrack = null; playing = false; previewT = Infinity; setPlayLabel(); dirty = true;
+      btn.disabled = false; btn.textContent = "Export video"; setTool(tool);
+      if (!chunks.length) { toast("Recording came out empty. Try again with this tab in front."); return; }
+      await save("sketch." + ext, new Blob(chunks, { type: mime }));
+    };
+    rec.start(250); previewT = 0; playStart = performance.now(); playing = true; setPlayLabel();
+    const endAt = total + S.hold;
+    const watch = setInterval(() => { if (previewT >= endAt || !recording) { clearInterval(watch); playing = false; previewT = endAt; render(Infinity); audioUpdate(false, 0); if (recTrack && recTrack.requestFrame) recTrack.requestFrame();
+      setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, 400); } }, 50);
+  };
+
+  // ---------------------------------------------------------------- boot
+  (function boot() {
+    let loaded = false;
+    try { const im = localStorage.getItem(IKEY); if (im) { const o = JSON.parse(im); for (const id in o) addImageRec(id, o[id].src, o[id].w, o[id].h); } } catch (e) {}
+    try { const s = localStorage.getItem(KEY); if (s) { restore(s); loaded = true; } } catch (e) {}
+    if (!loaded) els = demoScene();
+    computeTimes(); history = [snapshot()]; hIdx = 0; buildPatterns(); setTool("select"); refreshUI(); setPlayLabel();
+    FONTS.forEach(f => ensureFont({ font: f.id })); els.filter(e => e.kind === "text").forEach(ensureFont);
+    window.addEventListener("resize", () => { dirty = true; placeEdit(); });
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
