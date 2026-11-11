@@ -18,3 +18,6 @@ Single file, no build step, no dependencies. Open `index.html` in a browser.
 ```bash
 cp -R skill/sketchbook-video ~/.claude/skills/
 ```
+
+## License
+MIT, see [LICENSE](LICENSE).
